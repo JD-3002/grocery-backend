@@ -6,8 +6,10 @@ import {
   UpdateDateColumn,
   BeforeInsert,
   BeforeUpdate,
+  OneToMany,
 } from "typeorm";
 import * as bcrypt from "bcryptjs";
+import { UserRole } from "./user-role.entity";
 
 //Users table
 
@@ -45,6 +47,9 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => UserRole, (userRole) => userRole.user)
+  userRoles: UserRole[];
 
   // Track if password has been modified to avoid double hashing
   private passwordModified = false;

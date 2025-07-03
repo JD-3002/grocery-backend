@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { verifyAccessToken } from "../utils/jwt";
 import { AppDataSource } from "../data-source";
 import { User } from "../entities/user.entity";
+import { RBACService } from "../services/rbac.service";
 
 // Extend the Request interface
 declare global {
@@ -18,11 +19,12 @@ export const authenticate = async (
   req: Request,
   res: Response,
   next: NextFunction
-): Promise<void> => {
+) => {
   try {
     const accessToken = req.cookies.accessToken;
+
     if (!accessToken) {
-      res.status(401).json({ message: "Access token missing" });
+      return res.status(401).json({ message: "Access token missing" });
     }
 
     const decoded = verifyAccessToken(accessToken);
@@ -32,13 +34,22 @@ export const authenticate = async (
     });
 
     if (!user) {
-      res.status(401).json({ message: "User not found" });
+      return res.status(401).json({ message: "User not found" });
     }
 
-    req.user = user;
+    // Get user roles and permissions
+    const userRoles = await RBACService.getUserRoles(user.id);
+    const permissions = await RBACService.getUserPermissions(user.id);
+
+    req.user = {
+      ...user,
+      roles: userRoles.map((ur) => ur.role),
+      permissions: permissions,
+    };
+
     next();
   } catch (error) {
     console.error(error);
-    res.status(401).json({ message: "Invalid access token" });
+    return res.status(401).json({ message: "Invalid access token" });
   }
 };
