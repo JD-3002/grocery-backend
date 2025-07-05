@@ -72,7 +72,7 @@ export const AuthController = {
           "password",
           "refreshToken",
           "avatar",
-        ], // Include all needed fields
+        ],
       });
 
       if (!user) {
@@ -257,10 +257,15 @@ export const AuthController = {
         return;
       }
 
-      // Use setPassword method to ensure proper hashing
-      user.setPassword(newPassword);
+      // Hash the new password directly before saving
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      user.password = hashedPassword;
       user.resetPasswordOtp = null;
       user.resetPasswordOtpExpiry = null;
+
+      // Also clear the refresh token to force re-login
+      user.refreshToken = null;
+
       await userRepository.save(user);
 
       res.status(200).json({

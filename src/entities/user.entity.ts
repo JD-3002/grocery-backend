@@ -65,8 +65,14 @@ export class User {
   // Hash password before update (for password reset functionality)
   @BeforeUpdate()
   async hashPasswordOnUpdate() {
-    if (this.password && !this.isPasswordHashed(this.password)) {
+    // Only hash if password was explicitly modified and not already hashed
+    if (
+      this.passwordModified &&
+      this.password &&
+      !this.isPasswordHashed(this.password)
+    ) {
       this.password = await bcrypt.hash(this.password, 10);
+      this.passwordModified = false; // Reset the flag
     }
   }
 

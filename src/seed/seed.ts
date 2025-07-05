@@ -1,5 +1,7 @@
-import { AppDataSource } from "./data-source";
-import { RBACService } from "./services/rbac.service";
+import { AppDataSource } from "../data-source";
+import { User } from "../entities/user.entity";
+import { RBACService } from "../services/rbac.service";
+import bcrypt from "bcryptjs";
 
 async function seed() {
   await AppDataSource.initialize();
@@ -90,7 +92,23 @@ async function seed() {
     await RBACService.assignPermissionToRole(customerRole.id, permission.id);
   }
 
+  //addmin creation
+  const userRepository = AppDataSource.getRepository(User);
+  const adminUser = new User();
+  adminUser.firstName = "Admin";
+  adminUser.lastName = "User";
+  adminUser.email = "admin@example.com";
+  adminUser.password = await bcrypt.hash("admin123", 10);
+  await userRepository.save(adminUser);
+
+  // Assign admin role to admin user
+  await RBACService.assignRoleToUser(adminUser.id, adminRole.id);
+
   console.log("Database seeded successfully");
+  console.log("Admin user created:");
+  console.log(`Email: admin@example.com`);
+  console.log(`Password: admin123`);
+
   process.exit(0);
 }
 

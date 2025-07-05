@@ -5,7 +5,8 @@ export const checkPermission = (resource: string, action: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        res.status(401).json({ message: "Unauthorized" });
+        return;
       }
 
       const hasPermission = await RBACService.hasPermission(
@@ -15,13 +16,15 @@ export const checkPermission = (resource: string, action: string) => {
       );
 
       if (!hasPermission) {
-        return res.status(403).json({ message: "Forbidden" });
+        res.status(403).json({ message: "Forbidden" });
+        return;
       }
 
       next();
     } catch (error) {
       console.error(error);
-      return res.status(500).json({ message: "Internal server error" });
+      res.status(500).json({ message: "Internal server error" });
+      return;
     }
   };
 };

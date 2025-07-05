@@ -8,7 +8,7 @@ import { RBACService } from "../services/rbac.service";
 declare global {
   namespace Express {
     interface Request {
-      user?: User;
+      user?: User & { roles?: any[]; permissions?: any[] };
     }
   }
 }
@@ -24,7 +24,8 @@ export const authenticate = async (
     const accessToken = req.cookies.accessToken;
 
     if (!accessToken) {
-      return res.status(401).json({ message: "Access token missing" });
+      res.status(401).json({ message: "Access token missing" });
+      return;
     }
 
     const decoded = verifyAccessToken(accessToken);
@@ -34,22 +35,25 @@ export const authenticate = async (
     });
 
     if (!user) {
-      return res.status(401).json({ message: "User not found" });
+      res.status(401).json({ message: "User not found" });
+      return;
     }
 
     // Get user roles and permissions
     const userRoles = await RBACService.getUserRoles(user.id);
     const permissions = await RBACService.getUserPermissions(user.id);
 
+    // Use type assertion to add roles and permissions
     req.user = {
       ...user,
       roles: userRoles.map((ur) => ur.role),
       permissions: permissions,
-    };
+    } as User & { roles: any[]; permissions: any[] };
 
     next();
   } catch (error) {
     console.error(error);
-    return res.status(401).json({ message: "Invalid access token" });
+    res.status(401).json({ message: "Invalid access token" });
+    return;
   }
 };
