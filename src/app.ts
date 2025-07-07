@@ -6,6 +6,11 @@ import { AuthController } from "./controllers/auth.controller";
 import { authenticate } from "./middlewares/auth.middleware";
 import { RBACController } from "./controllers/rbac.controller";
 import { checkPermission } from "./middlewares/rbac.middleware";
+import { ProductController } from "./controllers/product.controller";
+
+import multer from "multer";
+
+const upload = multer({ dest: "uploads/" });
 
 dotenv.config();
 
@@ -90,6 +95,42 @@ app.get(
     res.json({ message: "Welcome to admin dashboard" });
   }
 );
+
+// Configure multer for file uploads
+
+// Product Routes
+app.post(
+  "/api/products",
+  authenticate,
+  checkPermission("product", "create"),
+  ProductController.createProduct
+);
+
+app.get("/api/products", ProductController.getProducts);
+app.get("/api/products/:id", ProductController.getProductById);
+
+app.put(
+  "/api/products/:id",
+  authenticate,
+  checkPermission("product", "update"),
+  ProductController.updateProduct
+);
+
+app.delete(
+  "/api/products/:id",
+  authenticate,
+  checkPermission("product", "delete"),
+  ProductController.deleteProduct
+);
+
+// Image upload route
+// app.post(
+//   "/api/products/upload-image",
+//   authenticate,
+//   checkPermission("product", "update"),
+//   upload.single("image"),
+//   ProductController.uploadImage
+// );
 
 // Initialize database and start server
 AppDataSource.initialize()
