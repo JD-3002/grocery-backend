@@ -1,4 +1,5 @@
 import { AppDataSource } from "../data-source";
+import { Category } from "../entities/category.entity";
 import { User } from "../entities/user.entity";
 import { RBACService } from "../services/rbac.service";
 import bcrypt from "bcryptjs";
@@ -92,6 +93,19 @@ async function seed() {
     await RBACService.assignPermissionToRole(customerRole.id, permission.id);
   }
 
+  //category creation
+  const categories = [
+    { name: "Fruits & Vegetables", description: "Fresh fruits and vegetables" },
+    { name: "Dairy & Eggs", description: "Milk, cheese, eggs and more" },
+    { name: "Meat & Seafood", description: "Fresh meat and seafood" },
+    { name: "Bakery", description: "Bread, cakes and pastries" },
+    { name: "Beverages", description: "Drinks and juices" },
+  ];
+
+  const categoryRepository = AppDataSource.getRepository(Category);
+  for (const cat of categories) {
+    await categoryRepository.save(categoryRepository.create(cat));
+  }
   //addmin creation
   const userRepository = AppDataSource.getRepository(User);
   const adminUser = new User();

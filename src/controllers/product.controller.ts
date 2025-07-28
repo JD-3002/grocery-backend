@@ -3,9 +3,11 @@ import { AppDataSource } from "../data-source";
 import { Product } from "../entities/product.entity";
 import { CreateProductDto, UpdateProductDto } from "../dto/product.dto";
 import { validate } from "class-validator";
-import { QueryBuilder } from "typeorm";
+import { In, QueryBuilder } from "typeorm";
+import { Category } from "../entities/category.entity";
 
 const productRepository = AppDataSource.getRepository(Product);
+const categoryRepository = AppDataSource.getRepository(Category);
 
 export const ProductController = {
   // Create Product (Admin only) or Users with access
@@ -19,13 +21,27 @@ export const ProductController = {
         res.status(400).json({ errors });
       }
 
-      const product = productRepository.create(productData);
-      await productRepository.save(product);
+      // Find all categories
+      const categories = await categoryRepository.find({
+        where: { id: In(productData.categoryIds) },
+      });
 
+      if (categories.length !== productData.categoryIds.length) {
+        res
+          .status(400)
+          .json({ message: "One or more category IDs are invalid" });
+      }
+
+      const product = productRepository.create({
+        ...productData,
+        categories,
+      });
+
+      await productRepository.save(product);
       res.status(201).json(product);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: "Internal Sever Error" });
+      res.status(500).json({ message: "Internal server error" });
     }
   },
 
@@ -72,11 +88,11 @@ export const ProductController = {
     try {
       const product = await productRepository.findOne({
         where: { id: req.params.id },
+        relations: ["categories"], // This ensures categories are loaded
       });
+
       if (!product) {
-        res.status(500).json({
-          message: "Product not found",
-        });
+        res.status(404).json({ message: "Product not found" });
       }
 
       const updateData = new UpdateProductDto();
@@ -87,13 +103,39 @@ export const ProductController = {
         res.status(400).json({ errors });
       }
 
-      Object.assign(product, updateData);
+      // Update categories if provided
+      if (updateData.categoryIds) {
+        // Find categories with proper typing
+        const categories = (await categoryRepository.find({
+          where: { id: In(updateData.categoryIds) },
+        })) as Category[]; // Explicit type assertion
+
+        if (categories.length !== updateData.categoryIds.length) {
+          res
+            .status(400)
+            .json({ message: "One or more category IDs are invalid" });
+        }
+
+        // Clear existing categories and set new ones
+        product.categories = categories;
+      }
+
+      // Update other fields (excluding categories which we handled above)
+      const { categoryIds, ...rest } = updateData;
+      Object.assign(product, rest);
+
       await productRepository.save(product);
 
-      res.status(201).json(product);
+      // Return the updated product with categories
+      const updatedProduct = await productRepository.findOne({
+        where: { id: product.id },
+        relations: ["categories"],
+      });
+
+      res.status(200).json(updatedProduct);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: "Internal Sever Error" });
+      res.status(500).json({ message: "Internal server error" });
     }
   },
 
@@ -133,6 +175,48 @@ export const ProductController = {
     } catch (error) {
       console.error(error);
       return res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
+  getProductsByCategory: async (req: Request, res: Response) => {
+    try {
+      const { slug } = req.params;
+      const { limit = "10", page = "1" } = req.query;
+
+      const take = parseInt(limit as string);
+      const skip = (parseInt(page as string) - 1) * take;
+
+      const category = await categoryRepository.findOne({
+        where: { slug },
+      });
+
+      if (!category) {
+        res.status(404).json({ message: "Category not found" });
+      }
+
+      const [products, total] = await productRepository.findAndCount({
+        where: {
+          categories: { id: category.id },
+          isActive: true,
+        },
+        relations: ["categories"],
+        take,
+        skip,
+        order: { createdAt: "DESC" },
+      });
+
+      res.status(200).json({
+        data: products,
+        meta: {
+          total,
+          page: parseInt(page as string),
+          limit: take,
+          totalPages: Math.ceil(total / take),
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Internal server error" });
     }
   },
 };

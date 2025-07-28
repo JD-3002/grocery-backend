@@ -4,6 +4,7 @@ import {
   IsOptional,
   IsUrl,
   IsBoolean,
+  IsArray,
 } from "class-validator";
 
 export class CreateProductDto {
@@ -21,9 +22,6 @@ export class CreateProductDto {
   discountedPrice?: number;
 
   @IsString()
-  category: string;
-
-  @IsString()
   summary: string;
 
   @IsNumber()
@@ -33,6 +31,10 @@ export class CreateProductDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsArray()
+  @IsString({ each: true })
+  categoryIds: string[]; // Now accepts array of category IDs
 }
 
 export class UpdateProductDto {
@@ -54,10 +56,6 @@ export class UpdateProductDto {
 
   @IsString()
   @IsOptional()
-  category?: string;
-
-  @IsString()
-  @IsOptional()
   summary?: string;
 
   @IsNumber()
@@ -67,4 +65,9 @@ export class UpdateProductDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  categoryIds?: string[]; // Optional array of category IDs for updates
 }

@@ -4,7 +4,10 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  ManyToMany,
+  JoinTable,
 } from "typeorm";
+import { Category } from "./category.entity";
 
 @Entity("products")
 export class Product {
@@ -15,16 +18,13 @@ export class Product {
   title: string;
 
   @Column({ type: "text" })
-  image: string; // image path or url
+  image: string;
 
   @Column({ type: "decimal", precision: 10, scale: 2 })
   price: number;
 
   @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
   discountedPrice: number | null;
-
-  @Column({ type: "varchar", length: 100 })
-  category: string;
 
   @Column({ type: "text" })
   summary: string;
@@ -34,6 +34,20 @@ export class Product {
 
   @Column({ type: "boolean", default: true })
   isActive: boolean;
+
+  @ManyToMany(() => Category, (category) => category.products)
+  @JoinTable({
+    name: "product_categories", // Join table name
+    joinColumn: {
+      name: "productId",
+      referencedColumnName: "id",
+    },
+    inverseJoinColumn: {
+      name: "categoryId",
+      referencedColumnName: "id",
+    },
+  })
+  categories: Category[];
 
   @CreateDateColumn()
   createdAt: Date;

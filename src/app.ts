@@ -9,6 +9,7 @@ import { checkPermission } from "./middlewares/rbac.middleware";
 import { ProductController } from "./controllers/product.controller";
 
 import multer from "multer";
+import { CategoryController } from "./controllers/category.controller";
 
 const upload = multer({ dest: "uploads/" });
 
@@ -108,6 +109,10 @@ app.post(
 
 app.get("/api/products", ProductController.getProducts);
 app.get("/api/products/:id", ProductController.getProductById);
+app.get(
+  "/api/categories/:slug/products",
+  ProductController.getProductsByCategory
+);
 
 app.put(
   "/api/products/:id",
@@ -131,6 +136,31 @@ app.delete(
 //   upload.single("image"),
 //   ProductController.uploadImage
 // );
+
+// Category Routes
+app.post(
+  "/api/categories",
+  authenticate,
+  checkPermission("category", "create"),
+  CategoryController.createCategory
+);
+
+app.get("/api/categories", CategoryController.getCategories);
+app.get("/api/categories/:slug", CategoryController.getCategoryBySlug);
+
+app.put(
+  "/api/categories/:id",
+  authenticate,
+  checkPermission("category", "update"),
+  CategoryController.updateCategory
+);
+
+app.delete(
+  "/api/categories/:id",
+  authenticate,
+  checkPermission("category", "delete"),
+  CategoryController.deleteCategory
+);
 
 // Initialize database and start server
 AppDataSource.initialize()
