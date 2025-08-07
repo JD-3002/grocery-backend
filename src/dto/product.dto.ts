@@ -1,32 +1,38 @@
-import {
-  IsString,
-  IsNumber,
-  IsOptional,
-  IsUrl,
-  IsBoolean,
-  IsArray,
-} from "class-validator";
+import { IsString, IsOptional, IsBoolean, IsArray } from "class-validator";
 
 export class CreateProductDto {
   @IsString()
   title: string;
 
-  @IsUrl()
-  image: string;
+  @IsArray()
+  @IsString({ each: true })
+  images: string[];
 
-  @IsNumber()
-  price: number;
+  @IsString()
+  price: string;
 
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  discountedPrice?: number;
+  boxPrice?: string | null;
+
+  @IsString()
+  @IsOptional()
+  boxDiscountPrice?: string | null;
 
   @IsString()
   summary: string;
 
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  stock?: number;
+  quantity?: string;
+
+  @IsString()
+  @IsOptional()
+  boxQuantity?: string | null;
+
+  @IsBoolean()
+  @IsOptional()
+  inStock?: boolean;
 
   @IsBoolean()
   @IsOptional()
@@ -34,7 +40,7 @@ export class CreateProductDto {
 
   @IsArray()
   @IsString({ each: true })
-  categoryIds: string[]; // Now accepts array of category IDs
+  categoryIds: string[];
 }
 
 export class UpdateProductDto {
@@ -42,25 +48,38 @@ export class UpdateProductDto {
   @IsOptional()
   title?: string;
 
-  @IsUrl()
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  image?: string;
+  images?: string[];
 
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  price?: number;
+  price?: string;
 
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  discountedPrice?: number | null;
+  boxPrice?: string | null;
+
+  @IsString()
+  @IsOptional()
+  boxDiscountPrice?: string | null;
 
   @IsString()
   @IsOptional()
   summary?: string;
 
-  @IsNumber()
+  @IsString()
   @IsOptional()
-  stock?: number;
+  quantity?: string;
+
+  @IsString()
+  @IsOptional()
+  boxQuantity?: string | null;
+
+  @IsBoolean()
+  @IsOptional()
+  inStock?: boolean;
 
   @IsBoolean()
   @IsOptional()
@@ -69,5 +88,5 @@ export class UpdateProductDto {
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
-  categoryIds?: string[]; // Optional array of category IDs for updates
+  categoryIds?: string[];
 }

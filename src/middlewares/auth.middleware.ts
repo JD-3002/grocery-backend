@@ -31,7 +31,7 @@ export const authenticate = async (
     const decoded = verifyAccessToken(accessToken);
     const user = await userRepository.findOne({
       where: { id: decoded.userId },
-      select: ["id", "firstName", "lastName", "email", "avatar"],
+      select: ["id", "firstname", "lastname", "email", "avatar"],
     });
 
     if (!user) {

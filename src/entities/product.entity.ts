@@ -17,27 +17,36 @@ export class Product {
   @Column({ type: "varchar", length: 255 })
   title: string;
 
-  @Column({ type: "text" })
-  image: string;
+  @Column("text", { array: true, default: [] })
+  images: string[];
 
-  @Column({ type: "decimal", precision: 10, scale: 2 })
-  price: number;
+  @Column({ type: "varchar" })
+  price: string; // Changed from decimal to varchar
 
-  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
-  discountedPrice: number | null;
+  @Column({ type: "varchar", nullable: true })
+  boxPrice: string | null; // New field
+
+  @Column({ type: "varchar", nullable: true })
+  boxDiscountPrice: string | null; // Replaced discountedPrice
 
   @Column({ type: "text" })
   summary: string;
 
-  @Column({ type: "integer", default: 0 })
-  stock: number;
+  @Column({ type: "varchar", default: "0" })
+  quantity: string; // Replaced stock
+
+  @Column({ type: "varchar", nullable: true })
+  boxQuantity: string | null; // New field
+
+  @Column({ type: "boolean", default: true })
+  inStock: boolean; // New field replacing stock boolean concept
 
   @Column({ type: "boolean", default: true })
   isActive: boolean;
 
   @ManyToMany(() => Category, (category) => category.products)
   @JoinTable({
-    name: "product_categories", // Join table name
+    name: "product_categories",
     joinColumn: {
       name: "productId",
       referencedColumnName: "id",

@@ -64,6 +64,12 @@ async function seed() {
     { name: "read-order", resource: "order", action: "read" },
     { name: "update-order", resource: "order", action: "update" },
     { name: "delete-order", resource: "order", action: "delete" },
+
+    // Category permissions
+    { name: "create-category", resource: "category", action: "create" },
+    { name: "read-category", resource: "category", action: "read" },
+    { name: "update-category", resource: "category", action: "update" },
+    { name: "delete-category", resource: "category", action: "delete" },
   ];
 
   for (const perm of permissions) {
@@ -108,20 +114,23 @@ async function seed() {
   }
   //addmin creation
   const userRepository = AppDataSource.getRepository(User);
-  const adminUser = new User();
-  adminUser.firstName = "Admin";
-  adminUser.lastName = "User";
-  adminUser.email = "admin@example.com";
-  adminUser.password = await bcrypt.hash("admin123", 10);
-  await userRepository.save(adminUser);
+  const admin = new User();
+  admin.firstname = "Poojan";
+  admin.lastname = "Shah";
+  admin.username = "poojan23";
+  admin.email = "poojan@popaya.in";
+  admin.phone = "+919833729922";
+  admin.userRole = "su";
+  admin.setPassword("1234567");
+  await userRepository.save(admin);
 
   // Assign admin role to admin user
-  await RBACService.assignRoleToUser(adminUser.id, adminRole.id);
+  await RBACService.assignRoleToUser(admin.id, adminRole.id);
 
   console.log("Database seeded successfully");
   console.log("Admin user created:");
-  console.log(`Email: admin@example.com`);
-  console.log(`Password: admin123`);
+  console.log(`Email: poojan@popaya.in`);
+  console.log(`Password: 1234567`);
 
   process.exit(0);
 }
