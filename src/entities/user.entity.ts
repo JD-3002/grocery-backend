@@ -10,6 +10,7 @@ import {
 } from "typeorm";
 import * as bcrypt from "bcryptjs";
 import { UserRole } from "./user-role.entity";
+import { Order } from "./order.entity";
 
 @Entity("users")
 export class User {
@@ -42,6 +43,9 @@ export class User {
 
   @OneToMany(() => UserRole, (userRole) => userRole.user)
   userRoles: UserRole[];
+
+  @OneToMany(() => Order, (order) => order.user)
+  orders: Order[];
 
   @Column({ type: "varchar", length: 255, nullable: true })
   avatar: string | null;

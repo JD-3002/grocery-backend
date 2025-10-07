@@ -5,6 +5,8 @@ import authRoutes from "./routes/auth.routes";
 import rbacRoutes from "./routes/rbac.routes";
 import productRoutes from "./routes/product.routes";
 import categoryRoutes from "./routes/category.routes";
+import cartRoutes from "./routes/cart.routes";
+import orderRoutes from "./routes/order.routes";
 import { authenticate } from "./middlewares/auth.middleware";
 import { checkPermission } from "./middlewares/rbac.middleware";
 
@@ -19,6 +21,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/rbac", rbacRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/orders", orderRoutes);
 
 // Protected route example
 app.get("/api/auth/me", authenticate, (req, res) => {

@@ -1,0 +1,260 @@
+import { Request, Response } from "express";
+import { AppDataSource } from "../data-source";
+import { Order, OrderStatus, PaymentStatus } from "../entities/order.entity";
+import { OrderItem } from "../entities/order-item.entity";
+import { Cart } from "../entities/cart.entity";
+import { CartItem } from "../entities/cart-item.entity";
+import { Product } from "../entities/product.entity";
+import {
+  CreateOrderDto,
+  UpdateOrderStatusDto,
+  UpdatePaymentStatusDto,
+} from "../dto/order.dto";
+import { validate } from "class-validator";
+
+const orderRepository = AppDataSource.getRepository(Order);
+const orderItemRepository = AppDataSource.getRepository(OrderItem);
+const cartRepository = AppDataSource.getRepository(Cart);
+const cartItemRepository = AppDataSource.getRepository(CartItem);
+const productRepository = AppDataSource.getRepository(Product);
+
+export const OrderController = {
+  // Create order from cart
+  createOrder: async (req: Request, res: Response) => {
+    try {
+      const userId = req.user.id;
+      const createOrderDto: CreateOrderDto = req.body;
+
+      const errors = await validate(createOrderDto);
+      if (errors.length > 0) {
+        res.status(400).json({ errors });
+      }
+
+      // Get user's cart with items
+      const cart = await cartRepository.findOne({
+        where: { userId },
+        relations: ["items", "items.product"],
+      });
+
+      if (!cart || cart.items.length === 0) {
+        res.status(400).json({ message: "Cart is empty" });
+      }
+
+      // Create order
+      const order = new Order();
+      order.userId = userId;
+      order.generateOrderNumber();
+      order.shippingAddress = createOrderDto.shippingAddress;
+      order.billingAddress =
+        createOrderDto.billingAddress || createOrderDto.shippingAddress;
+      order.paymentMethod = createOrderDto.paymentMethod;
+      order.notes = createOrderDto.notes;
+
+      // Create order items from cart items
+      order.items = await Promise.all(
+        cart.items.map(async (cartItem) => {
+          const orderItem = new OrderItem();
+          orderItem.productId = cartItem.productId;
+          orderItem.productName = cartItem.product.title;
+          orderItem.productImages = cartItem.product.images;
+          orderItem.quantity = cartItem.quantity;
+          orderItem.price = parseFloat(cartItem.product.price);
+          orderItem.discountedPrice = cartItem.product.boxDiscountPrice
+            ? parseFloat(cartItem.product.boxDiscountPrice)
+            : null;
+          orderItem.calculateTotal();
+          return orderItem;
+        })
+      );
+
+      // Calculate order totals
+      order.subtotal = order.items.reduce((sum, item) => sum + item.total, 0);
+      order.tax = order.subtotal * 0.1; // 10% tax example
+      order.shipping = order.subtotal > 500 ? 0 : 50; // Free shipping above 500
+      order.total = order.subtotal + order.tax + order.shipping;
+
+      // Save order
+      await orderRepository.save(order);
+
+      // Clear cart after successful order creation
+      await cartItemRepository.delete({ cartId: cart.id });
+      cart.total = 0;
+      cart.itemsCount = 0;
+      await cartRepository.save(cart);
+
+      //  created order
+      const createdOrder = await orderRepository.findOne({
+        where: { id: order.id },
+        relations: ["items"],
+      });
+
+      res.status(201).json(createdOrder);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
+  // Get user's orders
+  getUserOrders: async (req: Request, res: Response) => {
+    try {
+      const userId = req.user.id;
+      const { page = 1, limit = 10, status } = req.query;
+
+      const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+      const where: any = { userId };
+
+      if (status) {
+        where.status = status;
+      }
+
+      const [orders, total] = await orderRepository.findAndCount({
+        where,
+        relations: ["items"],
+        order: { createdAt: "DESC" },
+        skip,
+        take: parseInt(limit as string),
+      });
+
+      res.status(200).json({
+        orders,
+        pagination: {
+          total,
+          page: parseInt(page as string),
+          limit: parseInt(limit as string),
+          totalPages: Math.ceil(total / parseInt(limit as string)),
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
+  // Get order by ID
+  getOrder: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const order = await orderRepository.findOne({
+        where: { id, userId },
+        relations: ["items"],
+      });
+
+      if (!order) {
+        res.status(404).json({ message: "Order not found" });
+      }
+
+      res.status(200).json(order);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
+  // Update order status (Admin only)
+  updateOrderStatus: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updateDto: UpdateOrderStatusDto = req.body;
+
+      const errors = await validate(updateDto);
+      if (errors.length > 0) {
+        res.status(400).json({ errors });
+      }
+
+      const order = await orderRepository.findOne({
+        where: { id },
+        relations: ["items"],
+      });
+
+      if (!order) {
+        res.status(404).json({ message: "Order not found" });
+      }
+
+      order.status = updateDto.status;
+      if (updateDto.notes) {
+        order.notes = updateDto.notes;
+      }
+
+      await orderRepository.save(order);
+
+      res.status(200).json(order);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
+  // Update payment status
+  updatePaymentStatus: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const updateDto: UpdatePaymentStatusDto = req.body;
+
+      const errors = await validate(updateDto);
+      if (errors.length > 0) {
+        res.status(400).json({ errors });
+      }
+
+      const order = await orderRepository.findOne({
+        where: { id },
+        relations: ["items"],
+      });
+
+      if (!order) {
+        res.status(404).json({ message: "Order not found" });
+      }
+
+      order.paymentStatus = updateDto.paymentStatus;
+      if (updateDto.transactionId) {
+        order.transactionId = updateDto.transactionId;
+      }
+
+      await orderRepository.save(order);
+
+      res.status(200).json(order);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
+  // Cancel order
+  cancelOrder: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user.id;
+
+      const order = await orderRepository.findOne({
+        where: { id, userId },
+        relations: ["items"],
+      });
+
+      if (!order) {
+        res.status(404).json({ message: "Order not found" });
+      }
+
+      if (
+        ![OrderStatus.PENDING, OrderStatus.CONFIRMED].includes(
+          order.status as OrderStatus
+        )
+      ) {
+        res
+          .status(400)
+          .json({ message: "Order cannot be cancelled at this stage" });
+      }
+
+      order.status = OrderStatus.CANCELLED;
+      order.paymentStatus = PaymentStatus.REFUNDED;
+
+      await orderRepository.save(order);
+
+      res.status(200).json(order);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+};
