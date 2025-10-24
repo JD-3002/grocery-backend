@@ -11,6 +11,7 @@ import {
   UpdatePaymentStatusDto,
 } from "../dto/order.dto";
 import { validate } from "class-validator";
+import { plainToInstance } from "class-transformer";
 
 const orderRepository = AppDataSource.getRepository(Order);
 const orderItemRepository = AppDataSource.getRepository(OrderItem);
@@ -23,11 +24,17 @@ export const OrderController = {
   createOrder: async (req: Request, res: Response) => {
     try {
       const userId = req.user.id;
-      const createOrderDto: CreateOrderDto = req.body;
+      // Transform plain body to DTO instance so nested validation works
+      const createOrderDto = plainToInstance(CreateOrderDto, req.body);
 
-      const errors = await validate(createOrderDto);
+      const errors = await validate(createOrderDto, {
+        whitelist: true,
+        forbidUnknownValues: true,
+        validationError: { target: false },
+      });
       if (errors.length > 0) {
         res.status(400).json({ errors });
+        return;
       }
 
       // Get user's cart with items
@@ -38,6 +45,7 @@ export const OrderController = {
 
       if (!cart || cart.items.length === 0) {
         res.status(400).json({ message: "Cart is empty" });
+        return;
       }
 
       // Create order
@@ -58,20 +66,68 @@ export const OrderController = {
           orderItem.productName = cartItem.product.title;
           orderItem.productImages = cartItem.product.images;
           orderItem.quantity = cartItem.quantity;
-          orderItem.price = parseFloat(cartItem.product.price);
-          orderItem.discountedPrice = cartItem.product.boxDiscountPrice
-            ? parseFloat(cartItem.product.boxDiscountPrice)
-            : null;
+          // Debug cart item product prices
+          console.log(
+            `Cart item product price: ${
+              cartItem.product.price
+            } (type: ${typeof cartItem.product.price})`
+          );
+          console.log(
+            `Cart item product boxDiscountPrice: ${
+              cartItem.product.boxDiscountPrice
+            } (type: ${typeof cartItem.product.boxDiscountPrice})`
+          );
+
+          // Handle decimal values from TypeORM (they come as strings)
+          const productPrice =
+            typeof cartItem.product.price === "string"
+              ? parseFloat(cartItem.product.price)
+              : cartItem.product.price;
+
+          if (isNaN(productPrice) || productPrice <= 0) {
+            console.error(
+              `Invalid product price: ${cartItem.product.price} for product ${cartItem.product.id}`
+            );
+            throw new Error(
+              `Invalid product price for product ${cartItem.product.title}`
+            );
+          }
+
+          orderItem.price = productPrice;
+
+          // Handle discounted price
+          if (cartItem.product.boxDiscountPrice) {
+            const discountedPrice =
+              typeof cartItem.product.boxDiscountPrice === "string"
+                ? parseFloat(cartItem.product.boxDiscountPrice)
+                : cartItem.product.boxDiscountPrice;
+
+            if (!isNaN(discountedPrice) && discountedPrice > 0) {
+              orderItem.discountedPrice = discountedPrice;
+            }
+          }
           orderItem.calculateTotal();
           return orderItem;
         })
       );
 
-      // Calculate order totals
-      order.subtotal = order.items.reduce((sum, item) => sum + item.total, 0);
+      // Calculate order totals - ensure all values are numbers
+      order.subtotal = order.items.reduce((sum, item) => {
+        const itemTotal =
+          typeof item.total === "string" ? parseFloat(item.total) : item.total;
+        console.log(`Item total: ${itemTotal}, isNaN: ${isNaN(itemTotal)}`);
+        return sum + (isNaN(itemTotal) ? 0 : itemTotal);
+      }, 0);
+
+      console.log(`Order subtotal: ${order.subtotal}`);
+
       order.tax = order.subtotal * 0.1; // 10% tax example
       order.shipping = order.subtotal > 500 ? 0 : 50; // Free shipping above 500
       order.total = order.subtotal + order.tax + order.shipping;
+
+      console.log(
+        `Order total: ${order.total}, subtotal: ${order.subtotal}, tax: ${order.tax}, shipping: ${order.shipping}`
+      );
 
       // Save order
       await orderRepository.save(order);
@@ -157,11 +213,16 @@ export const OrderController = {
   updateOrderStatus: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const updateDto: UpdateOrderStatusDto = req.body;
+      const updateDto = plainToInstance(UpdateOrderStatusDto, req.body);
 
-      const errors = await validate(updateDto);
+      const errors = await validate(updateDto, {
+        whitelist: true,
+        forbidUnknownValues: true,
+        validationError: { target: false },
+      });
       if (errors.length > 0) {
         res.status(400).json({ errors });
+        return;
       }
 
       const order = await orderRepository.findOne({
@@ -171,6 +232,7 @@ export const OrderController = {
 
       if (!order) {
         res.status(404).json({ message: "Order not found" });
+        return;
       }
 
       order.status = updateDto.status;
@@ -191,11 +253,16 @@ export const OrderController = {
   updatePaymentStatus: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const updateDto: UpdatePaymentStatusDto = req.body;
+      const updateDto = plainToInstance(UpdatePaymentStatusDto, req.body);
 
-      const errors = await validate(updateDto);
+      const errors = await validate(updateDto, {
+        whitelist: true,
+        forbidUnknownValues: true,
+        validationError: { target: false },
+      });
       if (errors.length > 0) {
         res.status(400).json({ errors });
+        return;
       }
 
       const order = await orderRepository.findOne({
@@ -205,6 +272,7 @@ export const OrderController = {
 
       if (!order) {
         res.status(404).json({ message: "Order not found" });
+        return;
       }
 
       order.paymentStatus = updateDto.paymentStatus;
@@ -234,6 +302,7 @@ export const OrderController = {
 
       if (!order) {
         res.status(404).json({ message: "Order not found" });
+        return;
       }
 
       if (
@@ -244,6 +313,7 @@ export const OrderController = {
         res
           .status(400)
           .json({ message: "Order cannot be cancelled at this stage" });
+        return;
       }
 
       order.status = OrderStatus.CANCELLED;

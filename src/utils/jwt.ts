@@ -9,7 +9,7 @@ interface TokenPayload {
 }
 
 const jwtOptions: jwt.SignOptions = {
-  expiresIn: 15 * 60, // 15 minutes in seconds
+  expiresIn: 10 * 60 * 60, // 10 hours in seconds
 };
 
 const refreshTokenOptions: jwt.SignOptions = {

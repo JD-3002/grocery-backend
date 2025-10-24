@@ -3,7 +3,7 @@ import { AppDataSource } from "../data-source";
 import { Product } from "../entities/product.entity";
 import { CreateProductDto, UpdateProductDto } from "../dto/product.dto";
 import { validate } from "class-validator";
-import { In, QueryBuilder } from "typeorm";
+import { In } from "typeorm";
 import { Category } from "../entities/category.entity";
 
 const productRepository = AppDataSource.getRepository(Product);
@@ -19,7 +19,8 @@ export const ProductController = {
 
       const errors = await validate(productData);
       if (errors.length > 0) {
-        res.status(400).json({ errors }); // Added return
+        res.status(400).json({ errors });
+        return;
       }
 
       // Validate categories
@@ -34,6 +35,7 @@ export const ProductController = {
             (id) => !categories.some((c) => c.id === id)
           ),
         });
+        return;
       }
 
       // Create and save product
@@ -97,6 +99,7 @@ export const ProductController = {
       // 2. If no products found, return empty array
       if (productIds.length === 0) {
         res.status(200).json([]);
+        return;
       }
 
       // 3. Get complete product data with category IDs
@@ -132,6 +135,7 @@ export const ProductController = {
 
       if (!product) {
         res.status(404).json({ message: "Product not found" });
+        return;
       }
 
       // Create a new object without the categories property
@@ -157,6 +161,7 @@ export const ProductController = {
 
       if (!product) {
         res.status(404).json({ message: "Product not found" });
+        return;
       }
 
       const updateData = new UpdateProductDto();
@@ -165,6 +170,7 @@ export const ProductController = {
       const errors = await validate(updateData);
       if (errors.length > 0) {
         res.status(400).json({ errors });
+        return;
       }
 
       // Update categories if provided
@@ -178,6 +184,7 @@ export const ProductController = {
           res
             .status(400)
             .json({ message: "One or more category IDs are invalid" });
+          return;
         }
 
         // Clear existing categories and set new ones
@@ -210,11 +217,12 @@ export const ProductController = {
         where: { id: req.params.id },
       });
       if (!product) {
-        res.status(500).json({ messsage: "No such product exist" });
+        res.status(404).json({ message: "Product not found" });
+        return;
       }
 
       await productRepository.remove(product);
-      res.status(201).json({ message: "Product Deleted successfully" });
+      res.status(200).json({ message: "Product deleted successfully" });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Internal Sever Error" });
@@ -223,24 +231,24 @@ export const ProductController = {
 
   // Upload Product Image (Admin only)
   //under work
-  uploadImage: async (req: Request, res: Response) => {
-    try {
-      if (!req) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
+  // uploadImage: async (req: Request, res: Response) => {
+  //   try {
+  //     if (!req.file) {
+  //       return res.status(400).json({ message: "No file uploaded" });
+  //     }
 
-      // In production, you would upload to S3/Cloudinary/etc.
-      const imagePath = `/uploads/${req.body.file.filename}`;
+  //     // In production, you would upload to S3/Cloudinary/etc.
+  //     const imagePath = `/uploads/${req.file.filename}`;
 
-      return res.status(200).json({
-        message: "Image uploaded successfully",
-        imagePath,
-      });
-    } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Internal server error" });
-    }
-  },
+  //     return res.status(200).json({
+  //       message: "Image uploaded successfully",
+  //       imagePath,
+  //     });
+  //   } catch (error) {
+  //     console.error(error);
+  //     return res.status(500).json({ message: "Internal server error" });
+  //   }
+  // },
 
   getProductsByCategory: async (req: Request, res: Response) => {
     try {

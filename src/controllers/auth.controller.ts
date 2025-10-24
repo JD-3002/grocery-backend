@@ -107,15 +107,6 @@ export const AuthController = {
       user.refreshToken = refreshToken;
       await userRepository.save(user);
 
-      // const userResponse = {
-      //   id: user.id,
-      //   firstname: user.firstname,
-      //   lastname: user.lastname,
-      //   email: user.email,
-      //   avatar: user.avatar,
-      //   userRole: user.userRole,
-      // };
-
       res.status(200).json({
         id: user.id,
         firstname: user.firstname,
@@ -291,6 +282,63 @@ export const AuthController = {
       res.status(200).json(users);
     } catch (error) {
       console.error(error);
+      res.status(500).json({
+        message: "Internal server error",
+      });
+    }
+  },
+
+  getUserById: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+
+      //  Input validation: Check if ID is provided
+      if (!id) {
+        res.status(400).json({
+          message: "User ID is required",
+        });
+      }
+
+      // Input validation: Check if ID is valid UUID format (if using UUID)
+      // Uncomment the following lines if using UUID:
+      // const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      // if (!uuidRegex.test(id)) {
+      //   return res.status(400).json({
+      //     message: "Invalid user ID format",
+      //   });
+      // }
+
+      //  Find user by ID with selected fields only (excluding sensitive data)
+      const user = await userRepository.findOne({
+        where: { id },
+        select: [
+          "id",
+          "username",
+          "firstname",
+          "lastname",
+          "email",
+          "phone",
+          "avatar",
+          "userRole",
+          "createdAt",
+          "updatedAt",
+        ],
+      });
+
+      // 🔥 Handle user not found
+      if (!user) {
+        res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      // 🔥 Return user data (already filtered through select clause)
+      res.status(200).json({
+        success: true,
+        data: user,
+      });
+    } catch (error) {
+      console.error("Error fetching user by ID:", error);
       res.status(500).json({
         message: "Internal server error",
       });

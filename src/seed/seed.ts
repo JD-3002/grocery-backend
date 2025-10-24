@@ -2,7 +2,6 @@ import { AppDataSource } from "../data-source";
 import { Category } from "../entities/category.entity";
 import { User } from "../entities/user.entity";
 import { RBACService } from "../services/rbac.service";
-import bcrypt from "bcryptjs";
 
 async function seed() {
   await AppDataSource.initialize();

@@ -49,6 +49,19 @@ export class OrderItem {
   // Calculate item total
   calculateTotal(): void {
     const actualPrice = this.discountedPrice || this.price;
-    this.total = actualPrice * this.quantity;
+    // Ensure both values are numbers before calculation
+    const price =
+      typeof actualPrice === "string" ? parseFloat(actualPrice) : actualPrice;
+    const qty =
+      typeof this.quantity === "string"
+        ? parseInt(this.quantity)
+        : this.quantity;
+
+    console.log(
+      `OrderItem calculateTotal - price: ${price}, qty: ${qty}, actualPrice: ${actualPrice}, discountedPrice: ${this.discountedPrice}, originalPrice: ${this.price}`
+    );
+
+    this.total = price * qty;
+    console.log(`OrderItem total calculated: ${this.total}`);
   }
 }

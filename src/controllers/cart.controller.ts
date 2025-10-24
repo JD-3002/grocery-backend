@@ -5,6 +5,7 @@ import { CartItem } from "../entities/cart-item.entity";
 import { Product } from "../entities/product.entity";
 import { AddToCartDto, UpdateCartItemDto } from "../dto/cart.dto";
 import { validate } from "class-validator";
+import { plainToInstance } from "class-transformer";
 
 const cartRepository = AppDataSource.getRepository(Cart);
 const cartItemRepository = AppDataSource.getRepository(CartItem);
@@ -38,11 +39,16 @@ export const CartController = {
   addToCart: async (req: Request, res: Response) => {
     try {
       const userId = req.user.id;
-      const addToCartDto: AddToCartDto = req.body;
+      const addToCartDto = plainToInstance(AddToCartDto, req.body);
 
-      const errors = await validate(addToCartDto);
+      const errors = await validate(addToCartDto, {
+        whitelist: true,
+        forbidUnknownValues: true,
+        validationError: { target: false },
+      });
       if (errors.length > 0) {
         res.status(400).json({ errors });
+        return;
       }
 
       // Find or create cart
@@ -63,6 +69,7 @@ export const CartController = {
 
       if (!product) {
         res.status(404).json({ message: "Product not found" });
+        return;
       }
 
       // Check if product is in stock
@@ -70,19 +77,27 @@ export const CartController = {
         res.status(400).json({
           message: "Product is out of stock",
         });
+        return;
       }
 
-      // Parse quantity from string to number for validation
-      const availableQuantity = parseInt(product.quantity) || 0;
+      // Handle product quantity (could be string or number)
+      const availableQuantity =
+        typeof product.quantity === "string"
+          ? parseInt(product.quantity) || 0
+          : product.quantity || 0;
       if (availableQuantity < addToCartDto.quantity) {
         res.status(400).json({
           message: "Insufficient quantity",
           availableQuantity: availableQuantity,
         });
+        return;
       }
 
-      // Parse product price from string to number
-      const productPrice = parseFloat(product.price) || 0;
+      // Handle product price (now a number from decimal column)
+      const productPrice =
+        typeof product.price === "string"
+          ? parseFloat(product.price) || 0
+          : product.price || 0;
 
       // Check if item already in cart
       const existingItem = cart.items.find(
@@ -129,11 +144,16 @@ export const CartController = {
     try {
       const userId = req.user.id;
       const { itemId } = req.params;
-      const updateDto: UpdateCartItemDto = req.body;
+      const updateDto = plainToInstance(UpdateCartItemDto, req.body);
 
-      const errors = await validate(updateDto);
+      const errors = await validate(updateDto, {
+        whitelist: true,
+        forbidUnknownValues: true,
+        validationError: { target: false },
+      });
       if (errors.length > 0) {
         res.status(400).json({ errors });
+        return;
       }
 
       // Find cart and item
@@ -144,11 +164,13 @@ export const CartController = {
 
       if (!cart) {
         res.status(404).json({ message: "Cart not found" });
+        return;
       }
 
       const cartItem = cart.items.find((item) => item.id === itemId);
       if (!cartItem) {
         res.status(404).json({ message: "Item not found in cart" });
+        return;
       }
 
       if (updateDto.quantity === 0) {
@@ -165,15 +187,20 @@ export const CartController = {
           res.status(400).json({
             message: "Product is out of stock",
           });
+          return;
         }
 
-        // Parse available quantity
-        const availableQuantity = parseInt(product?.quantity || "0");
+        // Handle available quantity
+        const availableQuantity =
+          typeof product?.quantity === "string"
+            ? parseInt(product.quantity) || 0
+            : product?.quantity || 0;
         if (updateDto.quantity > availableQuantity) {
           res.status(400).json({
             message: "Insufficient quantity",
             availableQuantity: availableQuantity,
           });
+          return;
         }
 
         // Update quantity

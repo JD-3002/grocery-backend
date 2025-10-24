@@ -20,14 +20,14 @@ export class Product {
   @Column("text", { array: true, default: [] })
   images: string[];
 
-  @Column({ type: "varchar" })
-  price: string; // Changed from decimal to varchar
+  @Column({ type: "decimal", precision: 10, scale: 2 })
+  price: number;
 
-  @Column({ type: "varchar", nullable: true })
-  boxPrice: string | null; // New field
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  boxPrice: number | null;
 
-  @Column({ type: "varchar", nullable: true })
-  boxDiscountPrice: string | null; // Replaced discountedPrice
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  boxDiscountPrice: number | null;
 
   @Column({ type: "text" })
   summary: string;

@@ -9,6 +9,10 @@ import {
 } from "typeorm";
 import { User } from "./user.entity";
 import { OrderItem } from "./order-item.entity";
+import { PaymentStatus } from "./payment.entity";
+
+// Re-export PaymentStatus for other modules to use
+export { PaymentStatus };
 
 export enum OrderStatus {
   PENDING = "pending",
@@ -20,12 +24,7 @@ export enum OrderStatus {
   REFUNDED = "refunded",
 }
 
-export enum PaymentStatus {
-  PENDING = "pending",
-  PAID = "paid",
-  FAILED = "failed",
-  REFUNDED = "refunded",
-}
+// Remove duplicate PaymentStatus enum - use the one from payment.entity.ts
 
 @Entity("orders")
 export class Order {
@@ -105,10 +104,11 @@ export class Order {
 
   // Helper method to generate order number
   generateOrderNumber(): void {
-    const timestamp = Date.now().toString();
+    // Authorize.Net requires invoiceNumber to be max 20 characters
+    const timestamp = Date.now().toString().slice(-8); // Last 8 digits of timestamp
     const random = Math.floor(Math.random() * 1000)
       .toString()
       .padStart(3, "0");
-    this.orderNumber = `ORD-${timestamp}-${random}`;
+    this.orderNumber = `ORD${timestamp}${random}`; // Format: ORD + 8 digits + 3 digits = 14 chars
   }
 }

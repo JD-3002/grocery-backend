@@ -13,14 +13,15 @@ export const setTokens = (res: Response, userId: string, email: string) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge: 30 * 60 * 1000, // 30 minutes
+    // Align cookie lifetime with JWT expiry of 10 hours
+    maxAge: 10 * 60 * 60 * 1000,
   });
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
   return { accessToken, refreshToken };
