@@ -28,7 +28,7 @@ export const AppDataSource = new DataSource({
     : false,
 
   synchronize: false,
-  logging: !isProduction,
+  logging: ["error"],
 
   entities: [isProduction ? "dist/entities/**/*.js" : "src/entities/**/*.ts"],
 
