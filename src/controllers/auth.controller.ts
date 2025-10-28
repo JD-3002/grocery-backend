@@ -14,7 +14,7 @@ import { validate } from "class-validator";
 const userRepository = AppDataSource.getRepository(User);
 
 export const AuthController = {
-  register: async (req: Request, res: Response) => {
+  register: async (req: Request, res: Response): Promise<void> => {
     try {
       const { username, firstname, lastname, email, phone, password } =
         req.body;
@@ -28,29 +28,10 @@ export const AuthController = {
         res.status(400).json({
           message: "Username, email or phone number already in use",
         });
+        return;
       }
 
-      // Create a plain object for validation
-      const userData = {
-        username,
-        firstname,
-        lastname,
-        email,
-        phone,
-        password,
-      };
-
-      // Validate only the input data
-      const errors = await validate(userData, {
-        skipMissingProperties: false,
-        validationError: { target: false },
-      });
-
-      if (errors.length > 0) {
-        res.status(400).json({ errors });
-      }
-
-      // Create user entity after validation
+      // Create user entity
       const user = new User();
       user.userRole = "user";
       user.avatar = "";
@@ -73,7 +54,12 @@ export const AuthController = {
     }
   },
 
-  login: async (req: Request, res: Response, next: NextFunction) => {
+  login: async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    // ← ADD THIS
     try {
       const { email, password } = req.body;
 
@@ -116,11 +102,12 @@ export const AuthController = {
         userRole: user.userRole,
       });
     } catch (error) {
-      next(error); // Pass errors to Express error handler
+      next(error);
     }
   },
 
-  logout: async (req: Request, res: Response) => {
+  logout: async (req: Request, res: Response): Promise<void> => {
+    // ← ADD THIS
     try {
       const { refreshToken } = req.cookies;
       if (refreshToken) {
@@ -147,13 +134,15 @@ export const AuthController = {
     }
   },
 
-  refreshToken: async (req: Request, res: Response) => {
+  refreshToken: async (req: Request, res: Response): Promise<void> => {
+    // ← ADD THIS
     try {
       const { refreshToken } = req.cookies;
       if (!refreshToken) {
         res.status(400).json({
           message: "Refresh token missing",
         });
+        return;
       }
 
       const decoded = verifyRefreshToken(refreshToken);
@@ -165,6 +154,7 @@ export const AuthController = {
         res.status(400).json({
           message: "Invalid refresh token",
         });
+        return;
       }
 
       const { accessToken, refreshToken: newRefreshToken } = setTokens(
@@ -188,7 +178,8 @@ export const AuthController = {
     }
   },
 
-  requestPasswordReset: async (req: Request, res: Response) => {
+  requestPasswordReset: async (req: Request, res: Response): Promise<void> => {
+    // ← ADD THIS
     try {
       const { email } = req.body;
 
@@ -197,6 +188,7 @@ export const AuthController = {
         res.status(400).json({
           message: "If this email exists, we've sent a reset link",
         });
+        return;
       }
 
       const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -219,7 +211,8 @@ export const AuthController = {
     }
   },
 
-  resetPassword: async (req: Request, res: Response) => {
+  resetPassword: async (req: Request, res: Response): Promise<void> => {
+    // ← ADD THIS
     try {
       const { email, otp, newPassword } = req.body;
       const user = await userRepository.findOne({
@@ -230,6 +223,7 @@ export const AuthController = {
         res.status(404).json({
           message: "User not found",
         });
+        return;
       }
 
       if (
@@ -241,6 +235,7 @@ export const AuthController = {
         res.status(400).json({
           message: "Invalid or expired OTP",
         });
+        return;
       }
 
       user.setPassword(newPassword);
@@ -261,7 +256,8 @@ export const AuthController = {
     }
   },
 
-  getAllUsers: async (req: Request, res: Response) => {
+  getAllUsers: async (req: Request, res: Response): Promise<void> => {
+    // ← ADD THIS
     try {
       const users = await userRepository.find({
         select: [
@@ -288,27 +284,18 @@ export const AuthController = {
     }
   },
 
-  getUserById: async (req: Request, res: Response) => {
+  getUserById: async (req: Request, res: Response): Promise<void> => {
+    // ← ADD THIS
     try {
       const { id } = req.params;
 
-      //  Input validation: Check if ID is provided
       if (!id) {
         res.status(400).json({
           message: "User ID is required",
         });
+        return;
       }
 
-      // Input validation: Check if ID is valid UUID format (if using UUID)
-      // Uncomment the following lines if using UUID:
-      // const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      // if (!uuidRegex.test(id)) {
-      //   return res.status(400).json({
-      //     message: "Invalid user ID format",
-      //   });
-      // }
-
-      //  Find user by ID with selected fields only (excluding sensitive data)
       const user = await userRepository.findOne({
         where: { id },
         select: [
@@ -325,14 +312,13 @@ export const AuthController = {
         ],
       });
 
-      // 🔥 Handle user not found
       if (!user) {
         res.status(404).json({
           message: "User not found",
         });
+        return;
       }
 
-      // 🔥 Return user data (already filtered through select clause)
       res.status(200).json({
         success: true,
         data: user,
