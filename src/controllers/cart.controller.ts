@@ -26,6 +26,7 @@ export const CartController = {
         const newCart = cartRepository.create({ userId, items: [] });
         await cartRepository.save(newCart);
         res.status(200).json(newCart);
+        return;
       }
 
       res.status(200).json(cart);
@@ -232,18 +233,21 @@ export const CartController = {
 
       if (!cart) {
         res.status(404).json({ message: "Cart not found" });
+        return;
       }
 
       // Check if item exists in cart
       const itemExists = cart.items.some((item) => item.id === itemId);
       if (!itemExists) {
         res.status(404).json({ message: "Item not found in cart" });
+        return;
       }
 
       // Remove item
       await cartItemRepository.delete(itemId);
 
-      // Recalculate cart total
+      // Update in-memory items and recalculate totals
+      cart.items = cart.items.filter((item) => item.id !== itemId);
       cart.calculateTotal();
       await cartRepository.save(cart);
 
@@ -266,12 +270,14 @@ export const CartController = {
 
       if (!cart) {
         res.status(404).json({ message: "Cart not found" });
+        return;
       }
 
       // Remove all items
       await cartItemRepository.delete({ cartId: cart.id });
 
-      // Reset cart totals
+      // Reset cart items and totals
+      cart.items = [];
       cart.total = 0;
       cart.itemsCount = 0;
       await cartRepository.save(cart);
