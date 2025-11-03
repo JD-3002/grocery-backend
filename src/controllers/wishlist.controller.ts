@@ -34,11 +34,11 @@ export const WishlistController = {
     }
   },
 
-  // Add a product to wishlist (no duplicates)
-  addItem: async (req: Request, res: Response) => {
+  // Add a product to wishlist using route param :item (productId)
+  addItemByParam: async (req: Request, res: Response) => {
     try {
       const userId = req.user.id;
-      const dto = plainToInstance(AddToWishlistDto, req.body);
+      const dto = plainToInstance(AddToWishlistDto, { productId: req.params.item });
 
       const errors = await validate(dto, {
         whitelist: true,
@@ -162,4 +162,3 @@ export const WishlistController = {
     }
   },
 };
-

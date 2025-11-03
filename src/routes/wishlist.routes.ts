@@ -6,9 +6,8 @@ const router = Router();
 
 // Wishlist routes
 router.get("/", authenticate, WishlistController.getWishlist);
-router.post("/items", authenticate, WishlistController.addItem);
+router.post("/:item", authenticate, WishlistController.addItemByParam);
 router.delete("/items/:itemId", authenticate, WishlistController.removeItem);
 router.delete("/", authenticate, WishlistController.clearWishlist);
 
 export default router;
-
