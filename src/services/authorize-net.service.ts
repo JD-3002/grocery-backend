@@ -154,6 +154,155 @@ export class AuthorizeNetService {
     }
   }
 
+  // New: charge without a pre-existing order. Used for pay-then-create flow.
+  // Returns a lightweight result so the controller can decide how to persist.
+  static async createTransactionForCheckout(input: {
+    userEmail: string;
+    cardNumber: string;
+    expirationDate: string;
+    cardCode: string;
+    amount: number;
+    invoiceNumber: string;
+    billingAddress: {
+      firstName: string;
+      lastName: string;
+      address: string;
+      city: string;
+      state: string;
+      zipCode: string;
+      country: string;
+    };
+    shippingAddress: {
+      firstName: string;
+      lastName: string;
+      address: string;
+      city: string;
+      state: string;
+      zipCode: string;
+      country: string;
+    };
+  }): Promise<{
+    status: "completed" | "failed";
+    transactionId?: string;
+    authCode?: string;
+    paymentDetails?: { lastFour?: string; cardType?: string };
+    authorizeNetResponse: any;
+    failureMessage?: string;
+  }> {
+    // Ensure amount is a valid number
+    const amount =
+      typeof input.amount === "string" ? parseFloat(input.amount) : input.amount;
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error(`Invalid payment amount: ${input.amount}`);
+    }
+
+    // Create credit card object
+    const creditCard = new ApiContracts.CreditCardType();
+    creditCard.setCardNumber(input.cardNumber.replace(/\s/g, ""));
+    creditCard.setExpirationDate(input.expirationDate);
+    creditCard.setCardCode(input.cardCode);
+
+    // Create payment type
+    const paymentType = new ApiContracts.PaymentType();
+    paymentType.setCreditCard(creditCard);
+
+    // Order details
+    const orderDetails = new ApiContracts.OrderType();
+    orderDetails.setInvoiceNumber(input.invoiceNumber);
+    orderDetails.setDescription(`Payment for invoice ${input.invoiceNumber}`);
+
+    // Transaction request
+    const transactionRequestType = new ApiContracts.TransactionRequestType();
+    transactionRequestType.setTransactionType(
+      ApiContracts.TransactionTypeEnum.AUTHCAPTURETRANSACTION
+    );
+    transactionRequestType.setPayment(paymentType);
+    transactionRequestType.setAmount(amount);
+    transactionRequestType.setOrder(orderDetails);
+
+    // Customer
+    const customer = new ApiContracts.CustomerDataType();
+    customer.setEmail(input.userEmail);
+    transactionRequestType.setCustomer(customer);
+
+    // Billing
+    const billingAddress = new ApiContracts.CustomerAddressType();
+    billingAddress.setFirstName(input.billingAddress.firstName);
+    billingAddress.setLastName(input.billingAddress.lastName);
+    billingAddress.setAddress(input.billingAddress.address);
+    billingAddress.setCity(input.billingAddress.city);
+    billingAddress.setState(input.billingAddress.state);
+    billingAddress.setZip(input.billingAddress.zipCode);
+    billingAddress.setCountry(input.billingAddress.country);
+    transactionRequestType.setBillTo(billingAddress);
+
+    // Shipping
+    const shippingAddress = new ApiContracts.CustomerAddressType();
+    shippingAddress.setFirstName(input.shippingAddress.firstName);
+    shippingAddress.setLastName(input.shippingAddress.lastName);
+    shippingAddress.setAddress(input.shippingAddress.address);
+    shippingAddress.setCity(input.shippingAddress.city);
+    shippingAddress.setState(input.shippingAddress.state);
+    shippingAddress.setZip(input.shippingAddress.zipCode);
+    shippingAddress.setCountry(input.shippingAddress.country);
+    transactionRequestType.setShipTo(shippingAddress);
+
+    // API request
+    const createRequest = new ApiContracts.CreateTransactionRequest();
+    createRequest.setMerchantAuthentication(
+      AuthorizeNetService.createMerchantAuthentication()
+    );
+    createRequest.setTransactionRequest(transactionRequestType);
+
+    const controller = new ApiControllers.CreateTransactionController(
+      createRequest.getJSON()
+    );
+    controller.setEnvironment(AuthorizeNetService.getEnvironment());
+
+    return new Promise((resolve) => {
+      controller.execute(() => {
+        const apiResponse = controller.getResponse();
+        const response = new ApiContracts.CreateTransactionResponse(apiResponse);
+
+        const result: {
+          status: "completed" | "failed";
+          transactionId?: string;
+          authCode?: string;
+          paymentDetails?: { lastFour?: string; cardType?: string };
+          authorizeNetResponse: any;
+          failureMessage?: string;
+        } = {
+          status: "failed",
+          authorizeNetResponse: response,
+        };
+
+        const transResponse = response.getTransactionResponse();
+        if (transResponse) {
+          const responseCode = transResponse.getResponseCode();
+          if (responseCode === "1") {
+            result.status = "completed";
+            result.transactionId = transResponse.getTransId();
+            result.authCode = transResponse.getAuthCode();
+            if (transResponse.getAccountNumber()) {
+              result.paymentDetails = {
+                lastFour: transResponse.getAccountNumber(),
+                cardType: transResponse.getAccountType(),
+              };
+            }
+          } else {
+            const errors = transResponse.getErrors() || [];
+            result.failureMessage =
+              errors.length > 0 ? errors[0].getErrorText() : "Payment failed";
+          }
+        } else {
+          result.failureMessage = "No transaction response received";
+        }
+
+        resolve(result);
+      });
+    });
+  }
+
   private static async handleTransactionResponse(
     paymentId: string,
     response: any

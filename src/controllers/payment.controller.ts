@@ -1,102 +1,235 @@
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import { Order } from "../entities/order.entity";
-import { Payment, PaymentStatus } from "../entities/payment.entity";
+import { Order, OrderStatus } from "../entities/order.entity";
+import { Payment, PaymentMethod, PaymentStatus } from "../entities/payment.entity";
 import { validate } from "class-validator";
 import { plainToInstance } from "class-transformer";
 import { AuthorizeNetService } from "../services/authorize-net.service";
-import { ProcessPaymentDto, RefundPaymentDto } from "../dto/payment.dto";
+import {
+  ProcessPaymentDto,
+  RefundPaymentDto,
+  CheckoutPaymentDto,
+} from "../dto/payment.dto";
+import { Cart } from "../entities/cart.entity";
+import { CartItem } from "../entities/cart-item.entity";
+import { Product } from "../entities/product.entity";
+import { OrderItem } from "../entities/order-item.entity";
 
 const orderRepository = AppDataSource.getRepository(Order);
 const paymentRepository = AppDataSource.getRepository(Payment);
+const cartRepository = AppDataSource.getRepository(Cart);
+const cartItemRepository = AppDataSource.getRepository(CartItem);
+const productRepository = AppDataSource.getRepository(Product);
 
 export const PaymentController = {
   processPayment: async (req: Request, res: Response): Promise<void> => {
     try {
       const userId = req.user.id;
+      // Backward-compatible path (existing: order-first payment)
+      if (req.body && req.body.orderId) {
+        // Transform and validate DTO
+        const processPaymentDto = plainToInstance(ProcessPaymentDto, req.body);
+        const errors = await validate(processPaymentDto, {
+          whitelist: true,
+          forbidUnknownValues: true,
+          validationError: { target: false },
+        });
 
-      // Transform and validate DTO
-      const processPaymentDto = plainToInstance(ProcessPaymentDto, req.body);
-      const errors = await validate(processPaymentDto, {
+        if (errors.length > 0) {
+          res.status(400).json({ errors });
+          return;
+        }
+
+        // Verify user owns the order
+        const order = await orderRepository.findOne({
+          where: { id: processPaymentDto.orderId, userId },
+          relations: ["items"], // Load items to see the calculation
+        });
+
+        if (!order) {
+          res.status(404).json({ message: "Order not found" });
+          return;
+        }
+
+        if (order.paymentStatus === PaymentStatus.COMPLETED) {
+          res.status(400).json({ message: "Order already paid" });
+          return;
+        }
+
+        // Process payment based on existing order total
+        const orderTotal =
+          typeof order.total === "string" ? parseFloat(order.total) : order.total;
+
+        if (isNaN(orderTotal) || orderTotal <= 0) {
+          res.status(400).json({
+            message: "Invalid order total",
+            orderTotal: order.total,
+          });
+          return;
+        }
+
+        const payment = await AuthorizeNetService.createTransaction(
+          processPaymentDto.orderId,
+          {
+            cardNumber: processPaymentDto.cardNumber,
+            expirationDate: processPaymentDto.expirationDate,
+            cardCode: processPaymentDto.cardCode,
+            amount: orderTotal,
+          }
+        );
+
+        const isSuccess = payment.status === "completed";
+        res.status(isSuccess ? 200 : 400).json({
+          success: isSuccess,
+          payment,
+          message: isSuccess
+            ? "Payment processed successfully"
+            : "Payment processing failed",
+        });
+        return;
+      }
+
+      // New path: pay-then-create (no pre-existing order)
+      const checkoutDto = plainToInstance(CheckoutPaymentDto, req.body);
+      const errors = await validate(checkoutDto, {
         whitelist: true,
         forbidUnknownValues: true,
         validationError: { target: false },
       });
-
       if (errors.length > 0) {
         res.status(400).json({ errors });
         return;
       }
 
-      // Verify user owns the order
-      const order = await orderRepository.findOne({
-        where: { id: processPaymentDto.orderId, userId },
-        relations: ["items"], // Load items to see the calculation
+      // Load user's cart
+      const cart = await cartRepository.findOne({
+        where: { userId },
+        relations: ["items", "items.product"],
       });
 
-      if (!order) {
-        res.status(404).json({ message: "Order not found" });
+      if (!cart || !cart.items || cart.items.length === 0) {
+        res.status(400).json({ message: "Cart is empty" });
         return;
       }
 
-      if (order.paymentStatus === PaymentStatus.COMPLETED) {
-        res.status(400).json({ message: "Order already paid" });
+      // Build order items & compute totals (without persisting yet)
+      const tempOrderItems: OrderItem[] = await Promise.all(
+        cart.items.map(async (cartItem) => {
+          const orderItem = new OrderItem();
+          orderItem.productId = cartItem.productId;
+          orderItem.productName = cartItem.product.title;
+          orderItem.productImages = cartItem.product.images;
+          orderItem.quantity = cartItem.quantity;
+
+          const productPrice =
+            typeof cartItem.product.price === "string"
+              ? parseFloat(cartItem.product.price)
+              : cartItem.product.price;
+          if (isNaN(productPrice) || productPrice <= 0) {
+            throw new Error(
+              `Invalid product price for product ${cartItem.product.title}`
+            );
+          }
+          orderItem.price = productPrice;
+
+          if (cartItem.product.boxDiscountPrice) {
+            const discountedPrice =
+              typeof cartItem.product.boxDiscountPrice === "string"
+                ? parseFloat(cartItem.product.boxDiscountPrice)
+                : cartItem.product.boxDiscountPrice;
+            if (!isNaN(discountedPrice) && discountedPrice > 0) {
+              orderItem.discountedPrice = discountedPrice;
+            }
+          }
+          orderItem.calculateTotal();
+          return orderItem;
+        })
+      );
+
+      const subtotal = tempOrderItems.reduce((sum, item) => {
+        const itemTotal =
+          typeof item.total === "string" ? parseFloat(item.total) : item.total;
+        return sum + (isNaN(itemTotal) ? 0 : itemTotal);
+      }, 0);
+      const tax = subtotal * 0.1; // 10%
+      const shipping = subtotal > 500 ? 0 : 50;
+      const total = subtotal + tax + shipping;
+      if (isNaN(total) || total <= 0) {
+        res.status(400).json({ message: "Invalid cart total" });
         return;
       }
 
-      // Debug order details
-      console.log(`Payment processing - Order ID: ${order.id}`);
-      console.log(
-        `Order total from DB: ${order.total} (type: ${typeof order.total})`
-      );
-      console.log(
-        `Order subtotal: ${order.subtotal} (type: ${typeof order.subtotal})`
-      );
-      console.log(`Order tax: ${order.tax} (type: ${typeof order.tax})`);
-      console.log(
-        `Order shipping: ${order.shipping} (type: ${typeof order.shipping})`
-      );
-      console.log(`Order items count: ${order.items?.length || 0}`);
+      // Generate an invoice number (reuse Order.generateOrderNumber logic)
+      const tempOrderForNumber = new Order();
+      tempOrderForNumber.generateOrderNumber();
+      const invoiceNumber = tempOrderForNumber.orderNumber;
 
-      if (order.items && order.items.length > 0) {
-        order.items.forEach((item, index) => {
-          console.log(
-            `Item ${index}: price=${item.price}, quantity=${item.quantity}, total=${item.total}`
-          );
-        });
-      }
+      // Charge via Authorize.Net without a saved order
+      const chargeResult = await AuthorizeNetService.createTransactionForCheckout({
+        userEmail: req.user.email,
+        cardNumber: checkoutDto.cardNumber,
+        expirationDate: checkoutDto.expirationDate,
+        cardCode: checkoutDto.cardCode,
+        amount: total,
+        invoiceNumber,
+        billingAddress: checkoutDto.billingAddress || checkoutDto.shippingAddress,
+        shippingAddress: checkoutDto.shippingAddress,
+      });
 
-      // Process payment - ensure amount is properly converted to number
-      const orderTotal =
-        typeof order.total === "string" ? parseFloat(order.total) : order.total;
-
-      if (isNaN(orderTotal) || orderTotal <= 0) {
+      if (chargeResult.status !== "completed") {
         res.status(400).json({
-          message: "Invalid order total",
-          orderTotal: order.total,
+          success: false,
+          message: chargeResult.failureMessage || "Payment processing failed",
+          details: chargeResult.authorizeNetResponse,
         });
         return;
       }
 
-      const payment = await AuthorizeNetService.createTransaction(
-        processPaymentDto.orderId,
-        {
-          cardNumber: processPaymentDto.cardNumber,
-          expirationDate: processPaymentDto.expirationDate,
-          cardCode: processPaymentDto.cardCode,
-          amount: orderTotal,
-        }
-      );
+      // Create order now that payment is successful
+      const order = new Order();
+      order.userId = userId;
+      order.orderNumber = invoiceNumber; // ensure consistency with payment invoice
+      order.shippingAddress = checkoutDto.shippingAddress as any;
+      order.billingAddress =
+        (checkoutDto.billingAddress as any) || (checkoutDto.shippingAddress as any);
+      order.paymentMethod = checkoutDto.paymentMethod;
+      order.notes = checkoutDto.notes;
+      order.items = tempOrderItems;
+      order.subtotal = subtotal;
+      order.tax = tax;
+      order.shipping = shipping;
+      order.total = total;
+      order.paymentStatus = PaymentStatus.COMPLETED;
+      order.status = OrderStatus.CONFIRMED;
+      order.transactionId = chargeResult.transactionId;
 
-      // Check if payment was successful
-      const isSuccess = payment.status === "completed";
+      await orderRepository.save(order);
 
-      res.status(isSuccess ? 200 : 400).json({
-        success: isSuccess,
+      // Clear cart
+      await cartItemRepository.delete({ cartId: cart.id });
+      cart.total = 0 as any;
+      cart.itemsCount = 0 as any;
+      await cartRepository.save(cart);
+
+      // Persist payment record linked to the newly created order
+      const payment = paymentRepository.create({
+        orderId: order.id,
+        amount: total as any,
+        currency: "USD",
+        status: PaymentStatus.COMPLETED,
+        paymentMethod: PaymentMethod.CREDIT_CARD,
+        transactionId: chargeResult.transactionId,
+        authCode: chargeResult.authCode,
+        paymentDetails: chargeResult.paymentDetails as any,
+        authorizeNetResponse: chargeResult.authorizeNetResponse,
+      });
+      await paymentRepository.save(payment);
+
+      res.status(200).json({
+        success: true,
+        message: "Payment processed and order created successfully",
+        order,
         payment,
-        message: isSuccess
-          ? "Payment processed successfully"
-          : "Payment processing failed",
       });
     } catch (error) {
       console.error("Payment processing error:", error);
