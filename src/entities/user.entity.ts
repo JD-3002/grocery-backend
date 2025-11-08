@@ -89,6 +89,11 @@ export class User {
     if (this.username) {
       this.username = this.username.toLowerCase();
     }
+
+    // Ensure email is lowercase for consistent lookups
+    if (this.email) {
+      this.email = this.email.trim().toLowerCase();
+    }
   }
 
   private isPasswordHashed(password: string): boolean {

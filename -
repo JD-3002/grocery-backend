@@ -1,0 +1,91 @@
+        refreshToken: newRefreshToken,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({
+        message: "Internal server error",
+      });
+    }
+  },
+
+  requestPasswordReset: async (req: Request, res: Response): Promise<void> => {
+    // ← ADD THIS
+    try {
+      const { email } = req.body;
+
+      const user = await userRepository.findOne({ where: { email } });
+      if (!user) {
+        res.status(400).json({
+          message: "If this email exists, we've sent a reset link",
+        });
+        return;
+      }
+
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+      user.resetPasswordOtp = otp;
+      user.resetPasswordOtpExpiry = otpExpiry;
+      await userRepository.save(user);
+
+      await sendPasswordResetOtp(email, otp);
+
+      res.status(200).json({
+        message: "Password reset OTP sent to your email",
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({
+        message: "Internal server error",
+      });
+    }
+  },
+
+  resetPassword: async (req: Request, res: Response): Promise<void> => {
+    // ← ADD THIS
+    try {
+      const { email, otp, newPassword } = req.body;
+      // Load hidden OTP fields (select: false) explicitly
+      const user = await userRepository
+        .createQueryBuilder("user")
+        .addSelect(["user.resetPasswordOtp", "user.resetPasswordOtpExpiry"])
+        .where("user.email = :email", { email })
+        .getOne();
+
+      if (!user) {
+        res.status(404).json({
+          message: "User not found",
+        });
+        return;
+      }
+
+      const providedOtp = String(otp ?? "").trim();
+      if (
+        !user.resetPasswordOtp ||
+        user.resetPasswordOtp !== providedOtp ||
+        !user.resetPasswordOtpExpiry ||
+        user.resetPasswordOtpExpiry < new Date()
+      ) {
+        res.status(400).json({
+          message: "Invalid or expired OTP",
+        });
+        return;
+      }
+
+      user.setPassword(newPassword);
+      user.resetPasswordOtp = null;
+      user.resetPasswordOtpExpiry = null;
+      user.refreshToken = null;
+
+      await userRepository.save(user);
+
+      res.status(200).json({
+        message: "Password reset successfully",
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({
+        message: "Internal server error",
+      });
+    }
+  },

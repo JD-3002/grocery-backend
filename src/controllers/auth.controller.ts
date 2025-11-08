@@ -182,8 +182,12 @@ export const AuthController = {
     // ← ADD THIS
     try {
       const { email } = req.body;
+      const emailNormalized = String(email ?? "").trim().toLowerCase();
 
-      const user = await userRepository.findOne({ where: { email } });
+      const user = await userRepository
+        .createQueryBuilder("user")
+        .where("LOWER(user.email) = :email", { email: emailNormalized })
+        .getOne();
       if (!user) {
         res.status(400).json({
           message: "If this email exists, we've sent a reset link",
@@ -198,7 +202,7 @@ export const AuthController = {
       user.resetPasswordOtpExpiry = otpExpiry;
       await userRepository.save(user);
 
-      await sendPasswordResetOtp(email, otp);
+      await sendPasswordResetOtp(user.email, otp);
 
       res.status(200).json({
         message: "Password reset OTP sent to your email",
@@ -215,9 +219,13 @@ export const AuthController = {
     // ← ADD THIS
     try {
       const { email, otp, newPassword } = req.body;
-      const user = await userRepository.findOne({
-        where: { email },
-      });
+      const emailNormalized = String(email ?? "").trim().toLowerCase();
+      // Load hidden OTP fields (select: false) explicitly
+      const user = await userRepository
+        .createQueryBuilder("user")
+        .addSelect(["user.resetPasswordOtp", "user.resetPasswordOtpExpiry"])
+        .where("LOWER(user.email) = :email", { email: emailNormalized })
+        .getOne();
 
       if (!user) {
         res.status(404).json({
@@ -226,11 +234,16 @@ export const AuthController = {
         return;
       }
 
+      const providedOtp = String(otp ?? "").trim();
+      const now = Date.now();
+      const expiryTime = user.resetPasswordOtpExpiry
+        ? new Date(user.resetPasswordOtpExpiry).getTime()
+        : 0;
       if (
         !user.resetPasswordOtp ||
-        user.resetPasswordOtp !== otp ||
+        user.resetPasswordOtp !== providedOtp ||
         !user.resetPasswordOtpExpiry ||
-        user.resetPasswordOtpExpiry < new Date()
+        expiryTime < now
       ) {
         res.status(400).json({
           message: "Invalid or expired OTP",
