@@ -151,6 +151,40 @@ export const OrderController = {
     }
   },
 
+  // Admin: Get all users' orders
+  adminGetAllOrders: async (req: Request, res: Response) => {
+    try {
+      const { page = 1, limit = 10, status } = req.query;
+
+      const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+      const where: any = {};
+      if (status) {
+        where.status = status;
+      }
+
+      const [orders, total] = await orderRepository.findAndCount({
+        where,
+        relations: ["items", "user"],
+        order: { createdAt: "DESC" },
+        skip,
+        take: parseInt(limit as string),
+      });
+
+      res.status(200).json({
+        orders,
+        pagination: {
+          total,
+          page: parseInt(page as string),
+          limit: parseInt(limit as string),
+          totalPages: Math.ceil(total / parseInt(limit as string)),
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
   // Get user's orders
   getUserOrders: async (req: Request, res: Response) => {
     try {

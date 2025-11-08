@@ -5,6 +5,14 @@ import { checkPermission } from "../middlewares/rbac.middleware";
 
 const router = Router();
 
+// Admin order listing
+router.get(
+  "/admin",
+  authenticate,
+  checkPermission("order", "read"),
+  OrderController.adminGetAllOrders
+);
+
 router.post("/", authenticate, OrderController.createOrder);
 router.get("/", authenticate, OrderController.getUserOrders);
 router.get("/:id", authenticate, OrderController.getOrder);
