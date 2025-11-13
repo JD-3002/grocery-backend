@@ -5,9 +5,25 @@ import { CreateProductDto, UpdateProductDto } from "../dto/product.dto";
 import { validate } from "class-validator";
 import { In } from "typeorm";
 import { Category } from "../entities/category.entity";
+import { Brand } from "../entities/brand.entity";
 
 const productRepository = AppDataSource.getRepository(Product);
 const categoryRepository = AppDataSource.getRepository(Category);
+const brandRepository = AppDataSource.getRepository(Brand);
+
+const formatProductResponse = (product: Product) => {
+  if (!product) {
+    return null;
+  }
+
+  const { categories = [], brand, ...productData } = product;
+
+  return {
+    ...productData,
+    categoryIds: categories.map((c) => c.id),
+    brandId: brand ? brand.id : null,
+  };
+};
 
 export const ProductController = {
   // Create Product (Admin only) or Users with access
@@ -38,6 +54,19 @@ export const ProductController = {
         return;
       }
 
+      // Validate brand if provided
+      let brand: Brand | null = null;
+      if (productData.brandId) {
+        brand = await brandRepository.findOne({
+          where: { id: productData.brandId },
+        });
+
+        if (!brand) {
+          res.status(400).json({ message: "Invalid brand ID" });
+          return;
+        }
+      }
+
       // Create and save product
       const product = productRepository.create({
         title: productData.title,
@@ -50,6 +79,7 @@ export const ProductController = {
         boxQuantity: productData.boxQuantity || null,
         inStock: productData.inStock ?? true,
         isActive: productData.isActive ?? true,
+        brand: brand ?? null,
         categories,
       });
 
@@ -58,10 +88,10 @@ export const ProductController = {
       // Return the created product with relations
       const createdProduct = await productRepository.findOne({
         where: { id: product.id },
-        relations: ["categories"],
+        relations: ["categories", "brand"],
       });
 
-      res.status(201).json(createdProduct);
+      res.status(201).json(formatProductResponse(createdProduct));
     } catch (error) {
       console.error("Product creation error:", error);
       res.status(500).json({
@@ -106,17 +136,12 @@ export const ProductController = {
       const products = await productRepository
         .createQueryBuilder("product")
         .leftJoinAndSelect("product.categories", "category")
+        .leftJoinAndSelect("product.brand", "brand")
         .where("product.id IN (:...productIds)", { productIds })
         .getMany();
 
       // 4. Transform response to include only categoryIds
-      const response = products.map((product) => {
-        const { categories, ...productData } = product;
-        return {
-          ...productData,
-          categoryIds: categories.map((c) => c.id),
-        };
-      });
+      const response = products.map((product) => formatProductResponse(product));
 
       res.status(200).json(response);
     } catch (error) {
@@ -130,7 +155,7 @@ export const ProductController = {
     try {
       const product = await productRepository.findOne({
         where: { id: req.params.id },
-        relations: ["categories"],
+        relations: ["categories", "brand"],
       });
 
       if (!product) {
@@ -138,13 +163,7 @@ export const ProductController = {
         return;
       }
 
-      // Create a new object without the categories property
-      const { categories, ...productData } = product;
-      const response = {
-        ...productData,
-        categoryIds: categories.map((c) => c.id),
-      };
-      res.status(200).json(response);
+      res.status(200).json(formatProductResponse(product));
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Internal Server Error" });
@@ -156,7 +175,7 @@ export const ProductController = {
     try {
       const product = await productRepository.findOne({
         where: { id: req.params.id },
-        relations: ["categories"], // This ensures categories are loaded
+        relations: ["categories", "brand"], // This ensures relations are loaded
       });
 
       if (!product) {
@@ -191,8 +210,21 @@ export const ProductController = {
         product.categories = categories;
       }
 
+      if (updateData.brandId) {
+        const brand = await brandRepository.findOne({
+          where: { id: updateData.brandId },
+        });
+
+        if (!brand) {
+          res.status(400).json({ message: "Invalid brand ID" });
+          return;
+        }
+
+        product.brand = brand;
+      }
+
       // Update other fields (excluding categories which we handled above)
-      const { categoryIds, ...rest } = updateData;
+      const { categoryIds, brandId, ...rest } = updateData;
       Object.assign(product, rest);
 
       await productRepository.save(product);
@@ -200,10 +232,10 @@ export const ProductController = {
       // Return the updated product with categories
       const updatedProduct = await productRepository.findOne({
         where: { id: product.id },
-        relations: ["categories"],
+        relations: ["categories", "brand"],
       });
 
-      res.status(200).json(updatedProduct);
+      res.status(200).json(formatProductResponse(updatedProduct));
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: "Internal server error" });
@@ -271,14 +303,18 @@ export const ProductController = {
           categories: { id: category.id },
           isActive: true,
         },
-        relations: ["categories"],
+        relations: ["categories", "brand"],
         take,
         skip,
         order: { createdAt: "DESC" },
       });
 
+      const formattedProducts = products.map((product) =>
+        formatProductResponse(product)
+      );
+
       res.status(200).json({
-        data: products,
+        data: formattedProducts,
         meta: {
           total,
           page: parseInt(page as string),

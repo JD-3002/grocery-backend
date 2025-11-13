@@ -47,6 +47,10 @@ export class CreateProductDto {
   @IsArray()
   @IsString({ each: true })
   categoryIds: string[];
+
+  @IsString()
+  @IsOptional()
+  brandId?: string;
 }
 
 export class UpdateProductDto {
@@ -95,4 +99,8 @@ export class UpdateProductDto {
   @IsString({ each: true })
   @IsOptional()
   categoryIds?: string[];
+
+  @IsString()
+  @IsOptional()
+  brandId?: string;
 }

@@ -5,9 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToMany,
+  ManyToOne,
   JoinTable,
+  JoinColumn,
 } from "typeorm";
 import { Category } from "./category.entity";
+import { Brand } from "./brand.entity";
 
 @Entity("products")
 export class Product {
@@ -43,6 +46,13 @@ export class Product {
 
   @Column({ type: "boolean", default: true })
   isActive: boolean;
+
+  @ManyToOne(() => Brand, (brand) => brand.products, {
+    nullable: true,
+    onDelete: "SET NULL",
+  })
+  @JoinColumn({ name: "brandId" })
+  brand: Brand | null;
 
   @ManyToMany(() => Category, (category) => category.products)
   @JoinTable({

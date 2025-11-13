@@ -1,5 +1,6 @@
 import { AppDataSource } from "../data-source";
 import { Category } from "../entities/category.entity";
+import { Brand } from "../entities/brand.entity";
 import { User } from "../entities/user.entity";
 import { RBACService } from "../services/rbac.service";
 
@@ -69,6 +70,12 @@ async function seed() {
     { name: "read-category", resource: "category", action: "read" },
     { name: "update-category", resource: "category", action: "update" },
     { name: "delete-category", resource: "category", action: "delete" },
+
+    // Brand permissions
+    { name: "create-brand", resource: "brand", action: "create" },
+    { name: "read-brand", resource: "brand", action: "read" },
+    { name: "update-brand", resource: "brand", action: "update" },
+    { name: "delete-brand", resource: "brand", action: "delete" },
   ];
 
   for (const perm of permissions) {
@@ -110,6 +117,17 @@ async function seed() {
   const categoryRepository = AppDataSource.getRepository(Category);
   for (const cat of categories) {
     await categoryRepository.save(categoryRepository.create(cat));
+  }
+
+  const brands = [
+    { name: "Fresh Harvest", description: "Trusted source for farm produce" },
+    { name: "Daily Dairy", description: "Premium dairy partner" },
+    { name: "Ocean Catch", description: "Seafood specialists" },
+  ];
+
+  const brandRepository = AppDataSource.getRepository(Brand);
+  for (const brand of brands) {
+    await brandRepository.save(brandRepository.create(brand));
   }
   //addmin creation
   const userRepository = AppDataSource.getRepository(User);
