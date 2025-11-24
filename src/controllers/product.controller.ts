@@ -17,9 +17,13 @@ const formatProductResponse = (product: Product) => {
   }
 
   const { categories = [], brand, ...productData } = product;
+  const normalizedProduct = {
+    ...productData,
+    discountPrice: productData.discountPrice ?? productData.price,
+  };
 
   return {
-    ...productData,
+    ...normalizedProduct,
     categoryIds: categories.map((c) => c.id),
     brandId: brand ? brand.id : null,
   };
@@ -72,7 +76,7 @@ export const ProductController = {
         title: productData.title,
         images: productData.images,
         price: productData.price,
-        discountPrice: productData.discountPrice ?? null,
+        discountPrice: productData.discountPrice ?? productData.price,
         boxPrice: productData.boxPrice ?? null,
         boxDiscountPrice: productData.boxDiscountPrice ?? null,
         summary: productData.summary,
@@ -228,6 +232,7 @@ export const ProductController = {
       // Update other fields (excluding categories which we handled above)
       const { categoryIds, brandId, ...rest } = updateData;
       Object.assign(product, rest);
+      product.discountPrice = product.discountPrice ?? product.price;
 
       await productRepository.save(product);
 
