@@ -27,6 +27,9 @@ export class Product {
   price: number;
 
   @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  discountPrice: number | null;
+
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
   boxPrice: number | null;
 
   @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
@@ -40,6 +43,9 @@ export class Product {
 
   @Column({ type: "varchar", nullable: true })
   boxQuantity: string | null; // New field
+
+  @Column({ type: "integer", nullable: true })
+  unitsPerBox: number | null;
 
   @Column({ type: "boolean", default: true })
   inStock: boolean; // New field replacing stock boolean concept

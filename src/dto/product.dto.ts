@@ -4,6 +4,7 @@ import {
   IsBoolean,
   IsArray,
   IsNumber,
+  IsInt,
 } from "class-validator";
 
 export class CreateProductDto {
@@ -16,6 +17,10 @@ export class CreateProductDto {
 
   @IsNumber()
   price: number;
+
+  @IsNumber()
+  @IsOptional()
+  discountPrice?: number | null;
 
   @IsNumber()
   @IsOptional()
@@ -35,6 +40,10 @@ export class CreateProductDto {
   @IsString()
   @IsOptional()
   boxQuantity?: string | null;
+
+  @IsInt()
+  @IsOptional()
+  unitsPerBox?: number | null;
 
   @IsBoolean()
   @IsOptional()
@@ -69,6 +78,10 @@ export class UpdateProductDto {
 
   @IsNumber()
   @IsOptional()
+  discountPrice?: number | null;
+
+  @IsNumber()
+  @IsOptional()
   boxPrice?: number | null;
 
   @IsNumber()
@@ -86,6 +99,10 @@ export class UpdateProductDto {
   @IsString()
   @IsOptional()
   boxQuantity?: string | null;
+
+  @IsInt()
+  @IsOptional()
+  unitsPerBox?: number | null;
 
   @IsBoolean()
   @IsOptional()
