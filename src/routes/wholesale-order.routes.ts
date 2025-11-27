@@ -26,19 +26,13 @@ router.get(
   WholesaleOrderController.getAllRequests
 );
 
-router.get(
-  "/:id",
-  authenticate,
-  checkPermission("wholesale-order-request", "read"),
-  WholesaleOrderController.getRequestById
-);
+router.get("/:id", authenticate, WholesaleOrderController.getRequestById);
 
 router.patch(
   "/:id/status",
   authenticate,
-  checkPermission("wholesale-order-request", "update-status"),
+  checkPermission("wholesale-order-request", "update"),
   WholesaleOrderController.updateRequestStatus
 );
 
 export default router;
-
