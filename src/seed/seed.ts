@@ -76,6 +76,28 @@ async function seed() {
     { name: "read-brand", resource: "brand", action: "read" },
     { name: "update-brand", resource: "brand", action: "update" },
     { name: "delete-brand", resource: "brand", action: "delete" },
+
+    // Wholesale order request permissions
+    {
+      name: "create-wholesale-order-request",
+      resource: "wholesale-order-request",
+      action: "create",
+    },
+    {
+      name: "read-wholesale-order-request",
+      resource: "wholesale-order-request",
+      action: "read",
+    },
+    {
+      name: "read-all-wholesale-order-request",
+      resource: "wholesale-order-request",
+      action: "read-all",
+    },
+    {
+      name: "update-wholesale-order-request",
+      resource: "wholesale-order-request",
+      action: "update-status",
+    },
   ];
 
   for (const perm of permissions) {

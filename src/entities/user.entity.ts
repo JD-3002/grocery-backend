@@ -11,6 +11,7 @@ import {
 import * as bcrypt from "bcryptjs";
 import { UserRole } from "./user-role.entity";
 import { Order } from "./order.entity";
+import { WholesaleOrderRequest } from "./wholesale-order-request.entity";
 
 @Entity("users")
 export class User {
@@ -46,6 +47,12 @@ export class User {
 
   @OneToMany(() => Order, (order) => order.user)
   orders: Order[];
+
+  @OneToMany(
+    () => WholesaleOrderRequest,
+    (request) => request.user
+  )
+  wholesaleOrderRequests: WholesaleOrderRequest[];
 
   @Column({ type: "varchar", length: 255, nullable: true })
   avatar: string | null;
