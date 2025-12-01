@@ -42,9 +42,8 @@ const formatWholesaleRequestResponse = (
   const { items = [], ...rest } = request;
   const normalizedItems = items.map((item) => ({
     ...item,
-    boxPrice: toNumber(item.boxPrice),
-    boxDiscountPrice: toNumber(item.boxDiscountPrice),
-    effectivePricePerBox: toNumber(item.effectivePricePerBox),
+    wholesalePrice: toNumber(item.wholesalePrice),
+    effectivePricePerCarton: toNumber(item.effectivePricePerCarton),
     total: toNumber(item.total),
   }));
 
@@ -62,32 +61,28 @@ const buildWholesaleItemsFromCart = (cartItems: CartItem[]) => {
   return cartItems.map((cartItem) => {
     const product = cartItem.product;
     const requestedBoxes = cartItem.quantity;
-    const unitsPerBox =
-      product.unitsPerBox ??
-      (product.boxQuantity ? parseInt(product.boxQuantity, 10) : null);
+    const unitsPerCarton =
+      product.unitsPerCarton ??
+      (product.wholesaleOrderQuantity
+        ? parseInt(product.wholesaleOrderQuantity, 10)
+        : null);
 
-    const boxDiscountPrice = toNumber(product.boxDiscountPrice);
-    const boxPrice = toNumber(product.boxPrice);
+    const wholesalePrice = toNumber(product.wholesalePrice);
     const fallbackDiscountPrice = toNumber(product.discountPrice);
     const fallbackPrice = toNumber(product.price);
 
-    const effectivePricePerBox =
-      boxDiscountPrice ??
-      boxPrice ??
-      fallbackDiscountPrice ??
-      fallbackPrice ??
-      0;
+    const effectivePricePerCarton =
+      wholesalePrice ?? fallbackDiscountPrice ?? fallbackPrice ?? 0;
 
     const item = new WholesaleOrderItem();
     item.productId = product.id;
     item.productName = product.title;
     item.productImages = product.images || [];
     item.requestedBoxes = requestedBoxes;
-    item.boxQuantity = product.boxQuantity ?? null;
-    item.unitsPerBox = unitsPerBox;
-    item.boxPrice = boxPrice;
-    item.boxDiscountPrice = boxDiscountPrice;
-    item.effectivePricePerBox = effectivePricePerBox;
+    item.wholesaleOrderQuantity = product.wholesaleOrderQuantity ?? null;
+    item.unitsPerCarton = unitsPerCarton;
+    item.wholesalePrice = wholesalePrice;
+    item.effectivePricePerCarton = effectivePricePerCarton;
     item.calculateTotals();
 
     return item;

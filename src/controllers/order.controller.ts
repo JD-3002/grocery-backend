@@ -73,9 +73,9 @@ export const OrderController = {
             } (type: ${typeof cartItem.product.price})`
           );
           console.log(
-            `Cart item product boxDiscountPrice: ${
-              cartItem.product.boxDiscountPrice
-            } (type: ${typeof cartItem.product.boxDiscountPrice})`
+            `Cart item product discountPrice: ${
+              cartItem.product.discountPrice
+            } (type: ${typeof cartItem.product.discountPrice})`
           );
 
           // Handle decimal values from TypeORM (they come as strings)
@@ -96,11 +96,11 @@ export const OrderController = {
           orderItem.price = productPrice;
 
           // Handle discounted price
-          if (cartItem.product.boxDiscountPrice) {
+          if (cartItem.product.discountPrice) {
             const discountedPrice =
-              typeof cartItem.product.boxDiscountPrice === "string"
-                ? parseFloat(cartItem.product.boxDiscountPrice)
-                : cartItem.product.boxDiscountPrice;
+              typeof cartItem.product.discountPrice === "string"
+                ? parseFloat(cartItem.product.discountPrice)
+                : cartItem.product.discountPrice;
 
             if (!isNaN(discountedPrice) && discountedPrice > 0) {
               orderItem.discountedPrice = discountedPrice;

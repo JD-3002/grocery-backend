@@ -36,19 +36,16 @@ export class WholesaleOrderItem {
   requestedBoxes: number;
 
   @Column({ type: "varchar", nullable: true })
-  boxQuantity: string | null;
+  wholesaleOrderQuantity: string | null;
 
   @Column({ type: "integer", nullable: true })
-  unitsPerBox: number | null;
+  unitsPerCarton: number | null;
 
   @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
-  boxPrice: number | null;
-
-  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
-  boxDiscountPrice: number | null;
+  wholesalePrice: number | null;
 
   @Column({ type: "decimal", precision: 10, scale: 2 })
-  effectivePricePerBox: number;
+  effectivePricePerCarton: number;
 
   @Column({ type: "integer", nullable: true })
   totalUnits: number | null;
@@ -57,9 +54,12 @@ export class WholesaleOrderItem {
   total: number;
 
   calculateTotals(): void {
-    const unitsPerBox = this.unitsPerBox ?? 0;
-    this.totalUnits = unitsPerBox ? unitsPerBox * this.requestedBoxes : null;
-    this.total = Number((this.effectivePricePerBox * this.requestedBoxes).toFixed(2));
+    const unitsPerCarton = this.unitsPerCarton ?? 0;
+    this.totalUnits = unitsPerCarton
+      ? unitsPerCarton * this.requestedBoxes
+      : null;
+    this.total = Number(
+      (this.effectivePricePerCarton * this.requestedBoxes).toFixed(2)
+    );
   }
 }
-

@@ -24,11 +24,7 @@ export class CreateProductDto {
 
   @IsNumber()
   @IsOptional()
-  boxPrice?: number | null;
-
-  @IsNumber()
-  @IsOptional()
-  boxDiscountPrice?: number | null;
+  wholesalePrice?: number | null;
 
   @IsString()
   summary: string;
@@ -39,11 +35,11 @@ export class CreateProductDto {
 
   @IsString()
   @IsOptional()
-  boxQuantity?: string | null;
+  wholesaleOrderQuantity?: string | null;
 
   @IsInt()
   @IsOptional()
-  unitsPerBox?: number | null;
+  unitsPerCarton?: number | null;
 
   @IsBoolean()
   @IsOptional()
@@ -82,11 +78,7 @@ export class UpdateProductDto {
 
   @IsNumber()
   @IsOptional()
-  boxPrice?: number | null;
-
-  @IsNumber()
-  @IsOptional()
-  boxDiscountPrice?: number | null;
+  wholesalePrice?: number | null;
 
   @IsString()
   @IsOptional()
@@ -98,11 +90,11 @@ export class UpdateProductDto {
 
   @IsString()
   @IsOptional()
-  boxQuantity?: string | null;
+  wholesaleOrderQuantity?: string | null;
 
   @IsInt()
   @IsOptional()
-  unitsPerBox?: number | null;
+  unitsPerCarton?: number | null;
 
   @IsBoolean()
   @IsOptional()

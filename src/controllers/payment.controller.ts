@@ -132,11 +132,11 @@ export const PaymentController = {
           }
           orderItem.price = productPrice;
 
-          if (cartItem.product.boxDiscountPrice) {
+          if (cartItem.product.discountPrice) {
             const discountedPrice =
-              typeof cartItem.product.boxDiscountPrice === "string"
-                ? parseFloat(cartItem.product.boxDiscountPrice)
-                : cartItem.product.boxDiscountPrice;
+              typeof cartItem.product.discountPrice === "string"
+                ? parseFloat(cartItem.product.discountPrice)
+                : cartItem.product.discountPrice;
             if (!isNaN(discountedPrice) && discountedPrice > 0) {
               orderItem.discountedPrice = discountedPrice;
             }

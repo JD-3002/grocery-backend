@@ -30,10 +30,7 @@ export class Product {
   discountPrice: number | null;
 
   @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
-  boxPrice: number | null;
-
-  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
-  boxDiscountPrice: number | null;
+  wholesalePrice: number | null;
 
   @Column({ type: "text" })
   summary: string;
@@ -42,10 +39,10 @@ export class Product {
   quantity: string; // Replaced stock
 
   @Column({ type: "varchar", nullable: true })
-  boxQuantity: string | null; // New field
+  wholesaleOrderQuantity: string | null; // Previously boxQuantity
 
   @Column({ type: "integer", nullable: true })
-  unitsPerBox: number | null;
+  unitsPerCarton: number | null;
 
   @Column({ type: "boolean", default: true })
   inStock: boolean; // New field replacing stock boolean concept
