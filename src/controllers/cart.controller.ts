@@ -29,6 +29,9 @@ export const CartController = {
         return;
       }
 
+      cart.calculateTotal();
+      await cartRepository.save(cart);
+
       res.status(200).json(cart);
     } catch (error) {
       console.error(error);
