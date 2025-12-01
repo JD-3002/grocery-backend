@@ -81,7 +81,6 @@ export class WholesaleOrderRequest {
     const random = Math.floor(Math.random() * 1000)
       .toString()
       .padStart(3, "0");
-    this.requestNumber = `WRQ${timestamp}${random}`;
+    this.requestNumber = `WS${timestamp}${random}`;
   }
 }
-
