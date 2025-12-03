@@ -24,6 +24,7 @@ export const CartController = {
 
       if (!cart) {
         const newCart = cartRepository.create({ userId, items: [] });
+        newCart.wholesaleTotal = 0;
         await cartRepository.save(newCart);
         res.status(200).json(newCart);
         return;
@@ -231,7 +232,7 @@ export const CartController = {
 
       const cart = await cartRepository.findOne({
         where: { userId },
-        relations: ["items"],
+        relations: ["items", "items.product"],
       });
 
       if (!cart) {
@@ -282,6 +283,7 @@ export const CartController = {
       // Reset cart items and totals
       cart.items = [];
       cart.total = 0;
+      cart.wholesaleTotal = 0;
       cart.itemsCount = 0;
       await cartRepository.save(cart);
 

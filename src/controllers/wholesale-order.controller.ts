@@ -144,6 +144,7 @@ export const WholesaleOrderController = {
 
       await cartItemRepository.delete({ cartId: cart.id });
       cart.total = 0 as any;
+      cart.wholesaleTotal = 0 as any;
       cart.itemsCount = 0;
       await cartRepository.save(cart);
 

@@ -135,6 +135,7 @@ export const OrderController = {
       // Clear cart after successful order creation
       await cartItemRepository.delete({ cartId: cart.id });
       cart.total = 0;
+      cart.wholesaleTotal = 0;
       cart.itemsCount = 0;
       await cartRepository.save(cart);
 
