@@ -6,8 +6,11 @@ import {
   UpdateDateColumn,
   ManyToMany,
   BeforeInsert,
+  ManyToOne,
+  JoinColumn,
 } from "typeorm";
 import { Product } from "./product.entity";
+import { ParentCategory } from "./parent-category.entity";
 
 @Entity("categories")
 export class Category {
@@ -34,6 +37,16 @@ export class Category {
 
   @ManyToMany(() => Product, (product) => product.categories)
   products: Product[];
+
+  @ManyToOne(() => ParentCategory, (parent) => parent.categories, {
+    nullable: true,
+    onDelete: "SET NULL",
+  })
+  @JoinColumn({ name: "parentCategoryId" })
+  parentCategory: ParentCategory | null;
+
+  @Column({ type: "uuid", nullable: true })
+  parentCategoryId: string | null;
 
   @CreateDateColumn()
   createdAt: Date;

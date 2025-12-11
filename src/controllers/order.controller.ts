@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
 import { Order, OrderStatus, PaymentStatus } from "../entities/order.entity";
 import { OrderItem } from "../entities/order-item.entity";
-import { Cart } from "../entities/cart.entity";
+import { Cart, CartType } from "../entities/cart.entity";
 import { CartItem } from "../entities/cart-item.entity";
 import { Product } from "../entities/product.entity";
 import {
@@ -38,8 +38,12 @@ export const OrderController = {
       }
 
       // Get user's cart with items
+      const cartWhere = createOrderDto.cartId
+        ? { id: createOrderDto.cartId, userId }
+        : { userId, type: CartType.REGULAR };
+
       const cart = await cartRepository.findOne({
-        where: { userId },
+        where: cartWhere,
         relations: ["items", "items.product"],
       });
 

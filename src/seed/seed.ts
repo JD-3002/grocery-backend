@@ -3,18 +3,83 @@ import { Category } from "../entities/category.entity";
 import { Brand } from "../entities/brand.entity";
 import { User } from "../entities/user.entity";
 import { RBACService } from "../services/rbac.service";
+import { RolePermission } from "../entities/role-permission.entity";
+import { UserRole } from "../entities/user-role.entity";
 
 async function seed() {
   await AppDataSource.initialize();
+  const rolePermissionRepository =
+    AppDataSource.getRepository(RolePermission);
+  const userRoleRepository = AppDataSource.getRepository(UserRole);
+
+  const ensureRole = async (name: string, description?: string) => {
+    const existing = await RBACService.getRoleByName(name);
+    if (existing) {
+      return existing;
+    }
+    return RBACService.createRole(name, description);
+  };
+
+  const ensurePermission = async ({
+    name,
+    resource,
+    action,
+  }: {
+    name: string;
+    resource: string;
+    action: string;
+  }) => {
+    const existing = await RBACService.getPermissionByName(name);
+    if (existing) {
+      return existing;
+    }
+    return RBACService.createPermission(
+      name,
+      resource,
+      action,
+      `Permission to ${action} ${resource}`
+    );
+  };
+
+  const assignPermissionsToRole = async (
+    roleId: string,
+    permissionIds: string[]
+  ) => {
+    if (!permissionIds.length) {
+      return;
+    }
+
+    const existing = await rolePermissionRepository.find({
+      where: { roleId },
+    });
+    const existingIds = new Set(existing.map((rp) => rp.permissionId));
+
+    for (const permissionId of permissionIds) {
+      if (!existingIds.has(permissionId)) {
+        await RBACService.assignPermissionToRole(roleId, permissionId);
+        existingIds.add(permissionId);
+      }
+    }
+  };
+
+  const ensureUserRole = async (userId: string, roleId: string) => {
+    const exists = await userRoleRepository.findOne({
+      where: { userId, roleId },
+    });
+    if (!exists) {
+      await RBACService.assignRoleToUser(userId, roleId);
+    }
+  };
 
   // Create basic roles
-  const adminRole = await RBACService.createRole(
+  const adminRole = await ensureRole(
     "admin",
     "Administrator with full access"
   );
-  const customerRole = await RBACService.createRole(
-    "customer",
-    "Regular customer"
+  const customerRole = await ensureRole("customer", "Regular customer");
+  const wholesalerRole = await ensureRole(
+    "wholesaler",
+    "Wholesale customer"
   );
 
   // Create permissions
@@ -71,6 +136,28 @@ async function seed() {
     { name: "update-category", resource: "category", action: "update" },
     { name: "delete-category", resource: "category", action: "delete" },
 
+    // Parent category permissions
+    {
+      name: "create-parent-category",
+      resource: "parent-category",
+      action: "create",
+    },
+    {
+      name: "read-parent-category",
+      resource: "parent-category",
+      action: "read",
+    },
+    {
+      name: "update-parent-category",
+      resource: "parent-category",
+      action: "update",
+    },
+    {
+      name: "delete-parent-category",
+      resource: "parent-category",
+      action: "delete",
+    },
+
     // Brand permissions
     { name: "create-brand", resource: "brand", action: "create" },
     { name: "read-brand", resource: "brand", action: "read" },
@@ -100,32 +187,44 @@ async function seed() {
     },
   ];
 
+  const createdPermissions = [];
   for (const perm of permissions) {
-    await RBACService.createPermission(
-      perm.name,
-      perm.resource,
-      perm.action,
-      `Permission to ${perm.action} ${perm.resource}`
-    );
+    const permission = await ensurePermission(perm);
+    createdPermissions.push(permission);
   }
 
-  // Assign all permissions to admin role
-  const allPermissions = await RBACService.getAllPermissions();
-  for (const permission of allPermissions) {
-    await RBACService.assignPermissionToRole(adminRole.id, permission.id);
-  }
+  const permissionMap = new Map(
+    createdPermissions.map((permission) => [permission.name, permission])
+  );
 
-  // Assign basic permissions to customer role
-  const customerPermissions = await RBACService.getAllPermissions();
-  const basicCustomerPerms = customerPermissions.filter(
+  await assignPermissionsToRole(
+    adminRole.id,
+    createdPermissions.map((permission) => permission.id)
+  );
+
+  const basicCustomerPerms = createdPermissions.filter(
     (p) =>
       (p.resource === "product" && p.action === "read") ||
       (p.resource === "order" && ["create", "read"].includes(p.action))
   );
 
-  for (const permission of basicCustomerPerms) {
-    await RBACService.assignPermissionToRole(customerRole.id, permission.id);
-  }
+  await assignPermissionsToRole(
+    customerRole.id,
+    basicCustomerPerms.map((permission) => permission.id)
+  );
+
+  const wholesalerPermissionNames = [
+    "read-product",
+    "create-wholesale-order-request",
+    "read-wholesale-order-request",
+  ];
+  const wholesalerPermissionIds = wholesalerPermissionNames
+    .map((name) => permissionMap.get(name))
+    .filter((permission): permission is typeof createdPermissions[number] =>
+      Boolean(permission)
+    )
+    .map((permission) => permission.id);
+  await assignPermissionsToRole(wholesalerRole.id, wholesalerPermissionIds);
 
   //category creation
   const categories = [
@@ -138,7 +237,12 @@ async function seed() {
 
   const categoryRepository = AppDataSource.getRepository(Category);
   for (const cat of categories) {
-    await categoryRepository.save(categoryRepository.create(cat));
+    const existing = await categoryRepository.findOne({
+      where: { name: cat.name },
+    });
+    if (!existing) {
+      await categoryRepository.save(categoryRepository.create(cat));
+    }
   }
 
   const brands = [
@@ -149,22 +253,32 @@ async function seed() {
 
   const brandRepository = AppDataSource.getRepository(Brand);
   for (const brand of brands) {
-    await brandRepository.save(brandRepository.create(brand));
+    const existing = await brandRepository.findOne({
+      where: { name: brand.name },
+    });
+    if (!existing) {
+      await brandRepository.save(brandRepository.create(brand));
+    }
   }
   //addmin creation
   const userRepository = AppDataSource.getRepository(User);
-  const admin = new User();
-  admin.firstname = "Poojan";
-  admin.lastname = "Shah";
-  admin.username = "poojan23";
-  admin.email = "poojan@popaya.in";
-  admin.phone = "+919833729922";
-  admin.userRole = "su";
-  admin.setPassword("1234567");
-  await userRepository.save(admin);
+  let admin = await userRepository.findOne({
+    where: { email: "poojan@popaya.in" },
+  });
+  if (!admin) {
+    admin = new User();
+    admin.firstname = "Poojan";
+    admin.lastname = "Shah";
+    admin.username = "poojan23";
+    admin.email = "poojan@popaya.in";
+    admin.phone = "+919833729922";
+    admin.userRole = "su";
+    admin.setPassword("1234567");
+    await userRepository.save(admin);
+  }
 
   // Assign admin role to admin user
-  await RBACService.assignRoleToUser(admin.id, adminRole.id);
+  await ensureUserRole(admin.id, adminRole.id);
 
   console.log("Database seeded successfully");
   console.log("Admin user created:");

@@ -14,6 +14,7 @@ router.post(
 );
 
 router.get("/", CategoryController.getCategories);
+router.get("/:id", CategoryController.getCategoryById);
 router.get("/:slug", CategoryController.getCategoryBySlug);
 
 router.put(

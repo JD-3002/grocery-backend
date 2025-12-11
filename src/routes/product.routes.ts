@@ -14,11 +14,12 @@ router.post(
 );
 
 router.get("/", ProductController.getProducts);
-router.get("/:id", ProductController.getProductById);
 router.get(
   "/categories/:slug/products",
   ProductController.getProductsByCategory
 );
+router.get("/categories/id/:id", ProductController.getProductsByCategoryId);
+router.get("/:id", ProductController.getProductById);
 
 router.patch(
   "/:id",

@@ -1,12 +1,12 @@
 import {
   IsString,
   IsNumber,
-  IsArray,
   IsEnum,
   IsOptional,
   ValidateNested,
   IsEmail,
   IsPhoneNumber,
+  IsUUID,
 } from "class-validator";
 import { Type } from "class-transformer";
 import { OrderStatus, PaymentStatus } from "../entities/order.entity";
@@ -56,6 +56,10 @@ export class CreateOrderDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsUUID()
+  @IsOptional()
+  cartId?: string;
 }
 
 export class UpdateOrderStatusDto {

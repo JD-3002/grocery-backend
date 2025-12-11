@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import { Cart } from "../entities/cart.entity";
+import { Cart, CartType } from "../entities/cart.entity";
 import { CartItem } from "../entities/cart-item.entity";
 import { Product } from "../entities/product.entity";
 import { AddToCartDto, UpdateCartItemDto } from "../dto/cart.dto";
@@ -11,24 +11,49 @@ const cartRepository = AppDataSource.getRepository(Cart);
 const cartItemRepository = AppDataSource.getRepository(CartItem);
 const productRepository = AppDataSource.getRepository(Product);
 
+const CART_RELATIONS = ["items", "items.product"] as const;
+
+const parseCartType = (value?: string): CartType =>
+  value === CartType.BUY_NOW ? CartType.BUY_NOW : CartType.REGULAR;
+
+const findCart = async (userId: string, type: CartType) => {
+  return cartRepository.findOne({
+    where: { userId, type },
+    relations: [...CART_RELATIONS],
+  });
+};
+
+const ensureCart = async (userId: string, type: CartType) => {
+  let cart = await findCart(userId, type);
+  if (!cart) {
+    cart = cartRepository.create({ userId, type, items: [] });
+    cart = await cartRepository.save(cart);
+    cart.items = [];
+  }
+  return cart;
+};
+
+const toNumber = (value?: string | number | null) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") return isNaN(value) ? null : value;
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? null : parsed;
+};
+
+const resolveProductPrice = (product: Product) => {
+  const discountPrice = toNumber(product.discountPrice);
+  const regularPrice = toNumber(product.price);
+  return discountPrice ?? regularPrice ?? 0;
+};
+
 export const CartController = {
   // Get user's cart
   getCart: async (req: Request, res: Response) => {
     try {
       const userId = req.user.id;
+      const cartType = parseCartType(req.query.type as string);
 
-      const cart = await cartRepository.findOne({
-        where: { userId },
-        relations: ["items", "items.product"],
-      });
-
-      if (!cart) {
-        const newCart = cartRepository.create({ userId, items: [] });
-        newCart.wholesaleTotal = 0;
-        await cartRepository.save(newCart);
-        res.status(200).json(newCart);
-        return;
-      }
+      const cart = await ensureCart(userId, cartType);
 
       cart.calculateTotal();
       await cartRepository.save(cart);
@@ -57,15 +82,7 @@ export const CartController = {
       }
 
       // Find or create cart
-      let cart = await cartRepository.findOne({
-        where: { userId },
-        relations: ["items", "items.product"],
-      });
-
-      if (!cart) {
-        cart = cartRepository.create({ userId, items: [] });
-        await cartRepository.save(cart);
-      }
+      let cart = await ensureCart(userId, CartType.REGULAR);
 
       // Check if product exists
       const product = await productRepository.findOne({
@@ -99,10 +116,11 @@ export const CartController = {
       }
 
       // Handle product price (now a number from decimal column)
-      const productPrice =
-        typeof product.price === "string"
-          ? parseFloat(product.price) || 0
-          : product.price || 0;
+      const productPrice = resolveProductPrice(product);
+      if (!productPrice || productPrice <= 0) {
+        res.status(400).json({ message: "Invalid product price" });
+        return;
+      }
 
       // Check if item already in cart
       const existingItem = cart.items.find(
@@ -144,6 +162,83 @@ export const CartController = {
     }
   },
 
+  createBuyNowCart: async (req: Request, res: Response) => {
+    try {
+      const userId = req.user.id;
+      const dto = plainToInstance(AddToCartDto, req.body);
+
+      const errors = await validate(dto, {
+        whitelist: true,
+        forbidUnknownValues: true,
+        validationError: { target: false },
+      });
+      if (errors.length > 0) {
+        res.status(400).json({ errors });
+        return;
+      }
+
+      const product = await productRepository.findOne({
+        where: { id: dto.productId },
+      });
+
+      if (!product) {
+        res.status(404).json({ message: "Product not found" });
+        return;
+      }
+
+      if (!product.inStock) {
+        res.status(400).json({ message: "Product is out of stock" });
+        return;
+      }
+
+      const availableQuantity =
+        typeof product.quantity === "string"
+          ? parseInt(product.quantity) || 0
+          : product.quantity || 0;
+      if (availableQuantity < dto.quantity) {
+        res.status(400).json({
+          message: "Insufficient quantity",
+          availableQuantity,
+        });
+        return;
+      }
+
+      let cart = await ensureCart(userId, CartType.BUY_NOW);
+
+      await cartItemRepository.delete({ cartId: cart.id });
+      cart.items = [];
+
+      const productPrice = resolveProductPrice(product);
+      if (!productPrice || productPrice <= 0) {
+        res.status(400).json({ message: "Invalid product price" });
+        return;
+      }
+
+      const newItem = cartItemRepository.create({
+        cartId: cart.id,
+        productId: dto.productId,
+        quantity: dto.quantity,
+        price: productPrice,
+        product,
+      });
+
+      await cartItemRepository.save(newItem);
+      cart.items = [newItem];
+      cart.calculateTotal();
+      await cartRepository.save(cart);
+
+      const updatedCart = await cartRepository.findOne({
+        where: { id: cart.id },
+        relations: [...CART_RELATIONS],
+      });
+
+      res.status(200).json(updatedCart ?? cart);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
   // Update cart item quantity
   updateCartItem: async (req: Request, res: Response) => {
     try {
@@ -162,10 +257,7 @@ export const CartController = {
       }
 
       // Find cart and item
-      const cart = await cartRepository.findOne({
-        where: { userId },
-        relations: ["items", "items.product"],
-      });
+      const cart = await findCart(userId, CartType.REGULAR);
 
       if (!cart) {
         res.status(404).json({ message: "Cart not found" });
@@ -230,10 +322,7 @@ export const CartController = {
       const userId = req.user.id;
       const { itemId } = req.params;
 
-      const cart = await cartRepository.findOne({
-        where: { userId },
-        relations: ["items", "items.product"],
-      });
+      const cart = await findCart(userId, CartType.REGULAR);
 
       if (!cart) {
         res.status(404).json({ message: "Cart not found" });
@@ -267,8 +356,10 @@ export const CartController = {
     try {
       const userId = req.user.id;
 
+      const cartType = parseCartType(req.query.type as string);
+
       const cart = await cartRepository.findOne({
-        where: { userId },
+        where: { userId, type: cartType },
         relations: ["items"],
       });
 

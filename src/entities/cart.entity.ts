@@ -4,19 +4,26 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToOne,
+  ManyToOne,
   JoinColumn,
   OneToMany,
+  Index,
 } from "typeorm";
 import { User } from "./user.entity";
 import { CartItem } from "./cart-item.entity";
 
+export enum CartType {
+  REGULAR = "regular",
+  BUY_NOW = "buy-now",
+}
+
 @Entity("carts")
+@Index(["userId", "type"], { unique: true })
 export class Cart {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @OneToOne(() => User, { onDelete: "CASCADE" })
+  @ManyToOne(() => User, (user) => user.carts, { onDelete: "CASCADE" })
   @JoinColumn({ name: "userId" })
   user: User;
 
@@ -34,6 +41,9 @@ export class Cart {
 
   @Column({ type: "integer", default: 0 })
   itemsCount: number;
+
+  @Column({ type: "varchar", length: 20, default: CartType.REGULAR })
+  type: CartType;
 
   @CreateDateColumn()
   createdAt: Date;

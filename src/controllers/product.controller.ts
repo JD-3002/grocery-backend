@@ -333,4 +333,51 @@ export const ProductController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+
+  getProductsByCategoryId: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { limit = "10", page = "1" } = req.query;
+
+      const take = parseInt(limit as string);
+      const skip = (parseInt(page as string) - 1) * take;
+
+      const category = await categoryRepository.findOne({
+        where: { id },
+      });
+
+      if (!category) {
+        res.status(404).json({ message: "Category not found" });
+        return;
+      }
+
+      const [products, total] = await productRepository.findAndCount({
+        where: {
+          categories: { id: category.id },
+          isActive: true,
+        },
+        relations: ["categories", "brand"],
+        take,
+        skip,
+        order: { createdAt: "DESC" },
+      });
+
+      const formattedProducts = products.map((product) =>
+        formatProductResponse(product)
+      );
+
+      res.status(200).json({
+        data: formattedProducts,
+        meta: {
+          total,
+          page: parseInt(page as string),
+          limit: take,
+          totalPages: Math.ceil(total / take),
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
 };

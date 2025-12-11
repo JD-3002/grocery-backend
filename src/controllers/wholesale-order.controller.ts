@@ -4,7 +4,7 @@ import { validate } from "class-validator";
 import { AppDataSource } from "../data-source";
 import { WholesaleOrderRequest, WholesaleOrderRequestStatus } from "../entities/wholesale-order-request.entity";
 import { WholesaleOrderItem } from "../entities/wholesale-order-item.entity";
-import { Cart } from "../entities/cart.entity";
+import { Cart, CartType } from "../entities/cart.entity";
 import { CartItem } from "../entities/cart-item.entity";
 import { CreateWholesaleOrderRequestDto, UpdateWholesaleOrderRequestStatusDto } from "../dto/wholesale-order.dto";
 
@@ -109,8 +109,12 @@ export const WholesaleOrderController = {
         return;
       }
 
+      const cartWhere = createDto.cartId
+        ? { id: createDto.cartId, userId }
+        : { userId, type: CartType.REGULAR };
+
       const cart = await cartRepository.findOne({
-        where: { userId },
+        where: cartWhere,
         relations: ["items", "items.product"],
       });
 

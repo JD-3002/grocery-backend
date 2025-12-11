@@ -10,7 +10,7 @@ import {
   RefundPaymentDto,
   CheckoutPaymentDto,
 } from "../dto/payment.dto";
-import { Cart } from "../entities/cart.entity";
+import { Cart, CartType } from "../entities/cart.entity";
 import { CartItem } from "../entities/cart-item.entity";
 import { Product } from "../entities/product.entity";
 import { OrderItem } from "../entities/order-item.entity";
@@ -102,8 +102,12 @@ export const PaymentController = {
       }
 
       // Load user's cart
+      const cartWhere = checkoutDto.cartId
+        ? { id: checkoutDto.cartId, userId }
+        : { userId, type: CartType.REGULAR };
+
       const cart = await cartRepository.findOne({
-        where: { userId },
+        where: cartWhere,
         relations: ["items", "items.product"],
       });
 
@@ -121,16 +125,30 @@ export const PaymentController = {
           orderItem.productImages = cartItem.product.images;
           orderItem.quantity = cartItem.quantity;
 
-          const productPrice =
-            typeof cartItem.product.price === "string"
-              ? parseFloat(cartItem.product.price)
-              : cartItem.product.price;
-          if (isNaN(productPrice) || productPrice <= 0) {
+          const resolvedPrice =
+            typeof cartItem.price === "string"
+              ? parseFloat(cartItem.price)
+              : cartItem.price ??
+                (typeof cartItem.product.discountPrice === "string"
+                  ? parseFloat(cartItem.product.discountPrice)
+                  : typeof cartItem.product.discountPrice === "number"
+                  ? cartItem.product.discountPrice
+                  : typeof cartItem.product.price === "string"
+                  ? parseFloat(cartItem.product.price)
+                  : cartItem.product.price);
+
+          if (
+            resolvedPrice === null ||
+            resolvedPrice === undefined ||
+            isNaN(resolvedPrice) ||
+            resolvedPrice <= 0
+          ) {
             throw new Error(
               `Invalid product price for product ${cartItem.product.title}`
             );
           }
-          orderItem.price = productPrice;
+
+          orderItem.price = resolvedPrice;
 
           if (cartItem.product.discountPrice) {
             const discountedPrice =

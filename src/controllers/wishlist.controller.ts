@@ -3,7 +3,7 @@ import { AppDataSource } from "../data-source";
 import { Wishlist } from "../entities/wishlist.entity";
 import { WishlistItem } from "../entities/wishlist-item.entity";
 import { Product } from "../entities/product.entity";
-import { Cart } from "../entities/cart.entity";
+import { Cart, CartType } from "../entities/cart.entity";
 import { CartItem } from "../entities/cart-item.entity";
 import { validate } from "class-validator";
 import { plainToInstance } from "class-transformer";
@@ -210,16 +210,28 @@ export const WishlistController = {
 
       // Get or create cart
       let cart = await cartRepository.findOne({
-        where: { userId },
+        where: { userId, type: CartType.REGULAR },
         relations: ["items", "items.product"],
       });
       if (!cart) {
-        cart = cartRepository.create({ userId, items: [] });
-        await cartRepository.save(cart);
+        cart = cartRepository.create({ userId, type: CartType.REGULAR, items: [] });
+        cart = await cartRepository.save(cart);
+        cart.items = [];
       }
 
       // Determine price from product
-      const productPrice = typeof product.price === "string" ? parseFloat(product.price) || 0 : (product.price as any) || 0;
+      const productPrice =
+        typeof product.discountPrice === "string"
+          ? parseFloat(product.discountPrice) || 0
+          : typeof product.discountPrice === "number"
+          ? product.discountPrice
+          : typeof product.price === "string"
+          ? parseFloat(product.price) || 0
+          : (product.price as any) || 0;
+      if (!productPrice || productPrice <= 0) {
+        res.status(400).json({ message: "Invalid product price" });
+        return;
+      }
 
       // Add or increment in cart
       const existingItem = cart.items?.find((ci) => ci.productId === wItem.productId);

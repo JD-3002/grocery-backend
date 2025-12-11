@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, ValidateNested } from "class-validator";
+import { IsEnum, IsOptional, IsString, IsUUID, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 import { AddressDto } from "./order.dto";
 import { WholesaleOrderRequestStatus } from "../entities/wholesale-order-request.entity";
@@ -16,6 +16,10 @@ export class CreateWholesaleOrderRequestDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @IsUUID()
+  @IsOptional()
+  cartId?: string;
 }
 
 export class UpdateWholesaleOrderRequestStatusDto {
@@ -26,4 +30,3 @@ export class UpdateWholesaleOrderRequestStatusDto {
   @IsOptional()
   adminNotes?: string;
 }
-
