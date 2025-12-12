@@ -10,6 +10,7 @@ import * as bcrypt from "bcryptjs";
 import { sendPasswordResetOtp } from "../utils/email";
 import { clearTokens, setTokens } from "../utils/helper";
 import { validate } from "class-validator";
+import { RBACService } from "../services/rbac.service";
 
 const userRepository = AppDataSource.getRepository(User);
 
@@ -50,6 +51,57 @@ export const AuthController = {
       res.status(201).json(userResponse);
     } catch (error) {
       console.error(error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
+  registerWholesaler: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { username, firstname, lastname, email, phone, password } =
+        req.body;
+
+      // Check if username, email, or phone already exists
+      const existingUser = await userRepository.findOne({
+        where: [{ username }, { email }, { phone }],
+      });
+
+      if (existingUser) {
+        res.status(400).json({
+          message: "Username, email or phone number already in use",
+        });
+        return;
+      }
+
+      // Ensure wholesaler role exists in RBAC
+      const wholesalerRole = await RBACService.getRoleByName("wholesaler");
+      if (!wholesalerRole) {
+        res.status(500).json({
+          message: "Wholesaler role is not configured",
+        });
+        return;
+      }
+
+      // Create user with wholesaler role
+      const user = new User();
+      user.userRole = "wholesaler";
+      user.avatar = "";
+      user.username = username;
+      user.firstname = firstname;
+      user.lastname = lastname;
+      user.email = email;
+      user.phone = phone;
+      user.setPassword(password);
+
+      await userRepository.save(user);
+
+      // Link RBAC role (also syncs user.userRole)
+      await RBACService.assignRoleToUser(user.id, wholesalerRole.id);
+
+      const { password: _, refreshToken, ...userResponse } = user;
+
+      res.status(201).json(userResponse);
+    } catch (error) {
+      console.error("Wholesaler registration error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   },
@@ -272,7 +324,15 @@ export const AuthController = {
   getAllUsers: async (req: Request, res: Response): Promise<void> => {
     // ← ADD THIS
     try {
+      const role =
+        typeof req.query.role === "string"
+          ? req.query.role.trim().toLowerCase()
+          : typeof req.query.userRole === "string"
+          ? req.query.userRole.trim().toLowerCase()
+          : "";
+
       const users = await userRepository.find({
+        where: role ? { userRole: role } : undefined,
         select: [
           "id",
           "firstname",

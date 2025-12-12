@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUrl } from "class-validator";
+import { IsOptional, IsString } from "class-validator";
 
 export class CreateParentCategoryDto {
   @IsString()
@@ -8,7 +8,7 @@ export class CreateParentCategoryDto {
   @IsOptional()
   description?: string;
 
-  @IsUrl()
+  @IsString()
   @IsOptional()
   image?: string;
 }
@@ -22,7 +22,7 @@ export class UpdateParentCategoryDto {
   @IsOptional()
   description?: string;
 
-  @IsUrl()
+  @IsString()
   @IsOptional()
   image?: string;
 }

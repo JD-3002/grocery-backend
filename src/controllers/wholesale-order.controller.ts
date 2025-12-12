@@ -138,10 +138,10 @@ export const WholesaleOrderController = {
         (sum, item) => sum + (toNumber(item.total) || 0),
         0
       );
-      request.tax = Number((request.subtotal * 0.1).toFixed(2));
+      request.tax = 0;
       request.shipping = request.subtotal > 500 ? 0 : 50;
       request.total = Number(
-        (request.subtotal + request.tax + request.shipping).toFixed(2)
+        (request.subtotal + request.shipping).toFixed(2)
       );
 
       await wholesaleOrderRequestRepository.save(request);

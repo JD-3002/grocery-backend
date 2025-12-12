@@ -169,9 +169,9 @@ export const PaymentController = {
           typeof item.total === "string" ? parseFloat(item.total) : item.total;
         return sum + (isNaN(itemTotal) ? 0 : itemTotal);
       }, 0);
-      const tax = subtotal * 0.1; // 10%
+      const tax = 0; // Tax disabled
       const shipping = subtotal > 500 ? 0 : 50;
-      const total = subtotal + tax + shipping;
+      const total = subtotal + shipping;
       if (isNaN(total) || total <= 0) {
         res.status(400).json({ message: "Invalid cart total" });
         return;

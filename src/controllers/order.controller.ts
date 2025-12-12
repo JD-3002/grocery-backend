@@ -125,9 +125,9 @@ export const OrderController = {
 
       console.log(`Order subtotal: ${order.subtotal}`);
 
-      order.tax = order.subtotal * 0.1; // 10% tax example
+      order.tax = 0; // Tax disabled
       order.shipping = order.subtotal > 500 ? 0 : 50; // Free shipping above 500
-      order.total = order.subtotal + order.tax + order.shipping;
+      order.total = order.subtotal + order.shipping;
 
       console.log(
         `Order total: ${order.total}, subtotal: ${order.subtotal}, tax: ${order.tax}, shipping: ${order.shipping}`

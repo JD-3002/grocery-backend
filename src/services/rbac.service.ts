@@ -84,11 +84,29 @@ export const RBACService = {
 
   //User-role Assignment
   assignRoleToUser: async (userId: string, roleId: string) => {
+    const [user, role] = await Promise.all([
+      userRepository.findOne({ where: { id: userId } }),
+      roleRepository.findOne({ where: { id: roleId } }),
+    ]);
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+    if (!role) {
+      throw new Error("Role not found");
+    }
+
     const userRole = new UserRole();
     userRole.userId = userId;
     userRole.roleId = roleId;
 
-    return await userRoleRepository.save(userRole);
+    const savedUserRole = await userRoleRepository.save(userRole);
+
+    // Keep legacy user.userRole column in sync with the most recently assigned role
+    user.userRole = role.name;
+    await userRepository.save(user);
+
+    return savedUserRole;
   },
 
   removeRolefromUser: async (userId: string, roleId: string) => {
