@@ -96,6 +96,12 @@ async function seed() {
     { name: "update-permission", resource: "permission", action: "update" },
     { name: "delete-permission", resource: "permission", action: "delete" },
 
+    // User permissions
+    { name: "create-user", resource: "user", action: "create" },
+    { name: "read-user", resource: "user", action: "read" },
+    { name: "update-user", resource: "user", action: "update" },
+    { name: "delete-user", resource: "user", action: "delete" },
+
     // User-Role permissions
     { name: "create-user-role", resource: "user-role", action: "create" },
     { name: "read-user-role", resource: "user-role", action: "read" },

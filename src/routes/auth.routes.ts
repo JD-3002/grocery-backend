@@ -1,6 +1,8 @@
 // routes/auth.routes.ts
 import { Router } from "express";
 import { AuthController } from "../controllers/auth.controller";
+import { authenticate } from "../middlewares/auth.middleware";
+import { checkPermission } from "../middlewares/rbac.middleware";
 
 const router = Router();
 
@@ -13,5 +15,11 @@ router.post("/request-password-reset", AuthController.requestPasswordReset);
 router.post("/reset-password", AuthController.resetPassword);
 router.get("/users", AuthController.getAllUsers);
 router.get("/users/:id", AuthController.getUserById);
+router.delete(
+  "/users/:id",
+  authenticate,
+  checkPermission("user", "delete"),
+  AuthController.deleteUser
+);
 
 export default router;

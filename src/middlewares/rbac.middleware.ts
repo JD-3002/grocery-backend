@@ -9,6 +9,12 @@ export const checkPermission = (resource: string, action: string) => {
         return;
       }
 
+      // Super admin bypass
+      if (req.user.userRole === "su") {
+        next();
+        return;
+      }
+
       const hasPermission = await RBACService.hasPermission(
         req.user.id,
         resource,

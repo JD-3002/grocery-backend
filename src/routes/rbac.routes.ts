@@ -56,4 +56,11 @@ router.get(
   RBACController.getRolePermissions
 );
 
+// Utility: super-admin only to grant delete-user permission to admin role
+router.post(
+  "/admin/grant-delete-user",
+  authenticate,
+  RBACController.grantDeleteUserPermissionToAdmin
+);
+
 export default router;
